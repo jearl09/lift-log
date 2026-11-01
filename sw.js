@@ -8,7 +8,7 @@
    and activate() deletes every cache that isn't the current version.
    ========================================================================== */
 
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `lift-log-${CACHE_VERSION}`;
 
 const PRECACHE = [

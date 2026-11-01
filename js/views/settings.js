@@ -27,6 +27,17 @@ function seg(options, value, onPick) {
     el('button', { class: v === value ? 'active' : '', onclick: () => onPick(v) }, label)));
 }
 
+/** Device readout for layout debugging: viewport, safe-area insets, display mode. */
+function diagnostics() {
+  const probe = el('div', { style: { position: 'fixed', visibility: 'hidden', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' } });
+  document.body.append(probe);
+  const cs = getComputedStyle(probe);
+  const top = cs.paddingTop, bottom = cs.paddingBottom;
+  probe.remove();
+  const mode = isStandalone() ? 'standalone' : 'browser';
+  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v5`;
+}
+
 function isStandalone() {
   return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 }
@@ -103,6 +114,7 @@ export function render(view) {
       } }, 'Reset all data'),
     ),
     el('p.muted.small.center', {}, 'Lift Log · offline-first · data stays on this device'),
+    el('p.muted.small.center', {}, diagnostics()),
   );
 
   function exportJSON() {
