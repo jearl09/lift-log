@@ -41,7 +41,7 @@
 
   --tap: 48px;
   --header-h: 56px;
-  --tabbar-h: 72px;            /* the bar's real content height, excluding the safe-area padding */
+  --tabbar-h: 58px;            /* border + padding + icon pill + label; excludes the safe-area padding */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -134,13 +134,13 @@ p { margin: 0; }
 
 .tabbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  box-sizing: content-box; height: calc(var(--tabbar-h) - var(--s2) - var(--line));
-  padding: var(--s2) calc(var(--s3) + var(--safe-right)) env(safe-area-inset-bottom, 0px) calc(var(--s3) + var(--safe-left));
+  box-sizing: border-box; height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding: 6px calc(var(--s3) + var(--safe-right)) env(safe-area-inset-bottom, 0px) calc(var(--s3) + var(--safe-left));
   display: flex; gap: var(--s2);
   background: var(--cream); border-top: var(--line) solid var(--green); z-index: 20;
 }
-.tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s1); color: var(--green); font-size: var(--fs-small); font-weight: 500; }
-.tab-icon { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 32px; border-radius: var(--r-pill); border: var(--line) solid var(--green); background: var(--cream); }
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; color: var(--green); font-size: var(--fs-small); font-weight: 500; line-height: 1.4; }
+.tab-icon { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 30px; border-radius: var(--r-pill); border: var(--line) solid var(--green); background: var(--cream); }
 .tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tab.active { font-weight: 800; }
 .tab.active .tab-icon { background: var(--green); color: var(--cream); }

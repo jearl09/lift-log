@@ -35,7 +35,7 @@ function diagnostics() {
   const top = cs.paddingTop, bottom = cs.paddingBottom;
   probe.remove();
   const mode = isStandalone() ? 'standalone' : 'browser';
-  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v5`;
+  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v6`;
 }
 
 function isStandalone() {
