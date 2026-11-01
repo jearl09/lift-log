@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <title>Lift Log</title>
+  <meta name="description" content="Personal offline workout tracker">
+
+  <!-- iOS home-screen PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lift Log">
+  <meta name="theme-color" content="#F6F1E7">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- Apply saved theme before first paint to avoid a flash -->
+  <script>
+    try {
+      var s = JSON.parse(localStorage.getItem('wt.settings') || '{}');
+      var t = s.theme === 'oled' ? 'dark' : s.theme;
+      if (t === 'light' || t === 'dark' || t === 'system') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Everything lives inside #app so the shell can be framed on wide screens -->
+  <div id="app">
+    <header class="app-header">
+      <h1 id="header-title">Today</h1>
+    </header>
+
+    <main id="main">
+      <section id="view-today" class="view" data-view="today"></section>
+      <section id="view-splits" class="view hidden" data-view="splits"></section>
+      <section id="view-history" class="view hidden" data-view="history"></section>
+      <section id="view-settings" class="view hidden" data-view="settings"></section>
+    </main>
+
+    <nav class="tabbar" aria-label="Main">
+      <button class="tab active" data-tab="today" aria-label="Today">
+        <span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M3.5 11.5 12 4l8.5 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-6h4v6"/></svg></span>
+        <span>Today</span>
+      </button>
+      <button class="tab" data-tab="splits" aria-label="Splits">
+        <span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+        <span>Splits</span>
+      </button>
+      <button class="tab" data-tab="history" aria-label="History">
+        <span class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+        <span>History</span>
+      </button>
+      <button class="tab" data-tab="settings" aria-label="Settings">
+        <span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="var(--cream)"/><circle cx="15" cy="17" r="2.5" fill="var(--cream)"/></svg></span>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- Stacked sub-screens (workout, split editor, exercise detail, ...) -->
+    <div id="panel-root"></div>
+
+    <!-- Rest timer: mini bar above the tab bar, and the expandable sheet -->
+    <div id="timer-bar" class="timer-bar hidden"></div>
+    <div id="timer-full" class="timer-full hidden"></div>
+
+    <!-- Bottom sheets (confirm, prompt, plate calculator, ...) -->
+    <div id="sheet-root"></div>
+
+    <!-- Screen flash when the timer ends, confetti for PRs -->
+    <div id="flash" class="flash" aria-hidden="true"></div>
+    <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+    <div id="toast" class="toast hidden" role="status"></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

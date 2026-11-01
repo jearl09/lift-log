@@ -1,0 +1,87 @@
+/* ==========================================================================
+   sw.js — service worker: precache every app file so the app works fully
+   offline after the first load.
+
+   UPDATE STRATEGY: bump CACHE_VERSION whenever any file changes. The new
+   worker installs a fresh cache alongside the old one, waits, and the page
+   shows an "Update available" toast. Reload (or SKIP_WAITING) activates it,
+   and activate() deletes every cache that isn't the current version.
+   ========================================================================== */
+
+const CACHE_VERSION = 'v3';
+const CACHE_NAME = `lift-log-${CACHE_VERSION}`;
+
+const PRECACHE = [
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './manifest.webmanifest',
+  './js/db.js',
+  './js/ui.js',
+  './js/data.js',
+  './js/exercises.js',
+  './js/muscles.js',
+  './js/timer.js',
+  './js/sheet.js',
+  './js/confetti.js',
+  './js/plates.js',
+  './js/views/today.js',
+  './js/views/workout.js',
+  './js/views/splits.js',
+  './js/views/library.js',
+  './js/views/history.js',
+  './js/views/settings.js',
+  './fonts/BricolageGrotesque-latin.woff2',
+  './fonts/BricolageGrotesque-latin-ext.woff2',
+  './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png',
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)));
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  event.respondWith(
+    caches.match(req, { ignoreSearch: true }).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        }
+        return res;
+      }).catch(() => {
+        if (req.mode === 'navigate') return caches.match('./index.html');
+        return Response.error();
+      });
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      if (list.length) return list[0].focus();
+      return self.clients.openWindow('./');
+    }),
+  );
+});
