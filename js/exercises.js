@@ -46,6 +46,9 @@ export function createExercise(fields) {
     primary: fields.primary || [],
     secondary: fields.secondary || [],
     restSec: fields.restSec || null,
+    equip: fields.equip && fields.equip.length ? fields.equip : undefined,
+    pattern: fields.pattern || undefined,
+    kind: fields.kind || 'isolation',
   };
   db.exercises.push(ex);
   db.save('exercises');

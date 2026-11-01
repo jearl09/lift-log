@@ -1,0 +1,5 @@
+# Screenshots and local notes dropped into the project folder
+*.jpg
+*.jpeg
+*.png
+!icons/*.png

@@ -8,7 +8,7 @@
    and activate() deletes every cache that isn't the current version.
    ========================================================================== */
 
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const CACHE_NAME = `lift-log-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -26,6 +26,10 @@ const PRECACHE = [
   './js/sheet.js',
   './js/confetti.js',
   './js/plates.js',
+  './js/engine.js',
+  './js/icons.js',
+  './js/views/gyms.js',
+  './js/views/builder.js',
   './js/views/today.js',
   './js/views/workout.js',
   './js/views/splits.js',

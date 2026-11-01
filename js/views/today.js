@@ -1,22 +1,25 @@
 /* ==========================================================================
    views/today.js — Today tab: big Start button, stats strip, day picker,
-   crossfading muscle map with tap-to-filter, exercise preview.
+   active-gym pill, crossfading muscle map with tap-to-filter, and the day's
+   exercise list resolved against the active gym (swaps / unavailable).
    ========================================================================== */
 
 import { db } from '../db.js';
 import { MUSCLE_NAME } from '../data.js';
 import { el, append, clear, fmtDate, fmtTime, relativeDay, dayStart, emptyState, reducedMotion } from '../ui.js';
-import { confirmSheet } from '../sheet.js';
+import { confirmSheet, openSheet } from '../sheet.js';
 import { getExercise, muscleNames } from '../exercises.js';
 import { createMuscleMap, highlight, combineMuscles, onMuscleTap, select } from '../muscles.js';
+import { activeGym, resolveDay, equipmentNames, usedEquipment } from '../engine.js';
+import { equipmentIconEl } from '../icons.js';
 import { activeSplit } from './splits.js';
 import { startWorkout, openWorkout, discardWorkout } from './workout.js';
+import { gymPill } from './gyms.js';
 
 let selectedDayId = null;
 let lastSeenWorkoutId = null;
 let filterMuscle = null;
 
-/** Index of the day after the most recently logged day of this split. */
 export function suggestedDayIndex(split) {
   if (!split || !split.days.length) return 0;
   const last = db.workouts.find((w) => w.splitId === split.id);
@@ -26,7 +29,6 @@ export function suggestedDayIndex(split) {
   return (idx + 1) % split.days.length;
 }
 
-/** Consecutive weeks (ending this week or last) with at least one workout. */
 export function weekStreak() {
   const weeks = new Set(db.workouts.map((w) => Math.floor((dayStart() - dayStart(w.finishedAt)) / (7 * 86400000))));
   let k = weeks.has(0) ? 0 : weeks.has(1) ? 1 : -1;
@@ -42,10 +44,23 @@ export function setsThisWeek() {
     .reduce((n, w) => n + w.exercises.reduce((m, e) => m + e.sets.filter((s) => !s.warmup).length, 0), 0);
 }
 
+function swapInfoSheet(entry, gym) {
+  const ex = getExercise(entry.exerciseId);
+  const orig = entry.originalId ? getExercise(entry.originalId) : null;
+  openSheet({
+    title: entry.status === 'swapped' ? 'Swapped' : 'Unavailable here',
+    text: entry.reason,
+    render(body) {
+      if (orig) body.append(el('p.small', {}, `${orig.name} → ${ex.name}`));
+      if (entry.missing.length) body.append(el('div.row', {}, el('span.eq-icons', {}, entry.missing.map((id) => equipmentIconEl(id, 20))), el('span.muted.small', {}, `${gym.name} is missing: ${equipmentNames(entry.missing)}`)));
+    },
+    actions: [{ label: 'OK' }],
+  });
+}
+
 export function render(view) {
   clear(view);
 
-  // ---- In-progress workout ----
   if (db.active) {
     const a = db.active;
     const done = a.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
@@ -64,19 +79,13 @@ export function render(view) {
 
   const split = activeSplit();
   if (!split) {
-    view.append(el('div.card', {}, emptyState({
-      icon: 'list', title: 'No active split',
-      text: 'Add a preset or build your own split, then set it as active.',
-      action: { label: 'Open Splits', onclick: () => document.dispatchEvent(new CustomEvent('app:tab', { detail: 'splits' })) },
-    })));
+    view.append(el('div.card', {}, emptyState({ icon: 'list', title: 'No active split', text: 'Add a preset or build your own split, then set it as active.',
+      action: { label: 'Open Splits', onclick: () => document.dispatchEvent(new CustomEvent('app:tab', { detail: 'splits' })) } })));
     return;
   }
   if (!split.days.length) {
-    view.append(el('div.card', {}, emptyState({
-      icon: 'list', title: `${split.name} has no days`,
-      text: 'Add a day with some exercises to start logging.',
-      action: { label: 'Edit split', onclick: () => document.dispatchEvent(new CustomEvent('app:tab', { detail: 'splits' })) },
-    })));
+    view.append(el('div.card', {}, emptyState({ icon: 'list', title: `${split.name} has no days`, text: 'Add a day with some exercises to start logging.',
+      action: { label: 'Edit split', onclick: () => document.dispatchEvent(new CustomEvent('app:tab', { detail: 'splits' })) } })));
     return;
   }
 
@@ -86,9 +95,8 @@ export function render(view) {
   const suggestedIdx = suggestedDayIndex(split);
   let day = split.days.find((d) => d.id === selectedDayId) || split.days[suggestedIdx];
   selectedDayId = day.id;
+  const gym = activeGym();
 
-  // ---- Elements that update when the day changes ----
-  // One primary button per screen: when a workout is in progress, Resume is it.
   const startBtn = el('button.btn.primary.big.block.start-btn', { class: db.active ? 'hidden' : '', onclick: () => startWorkout(split, day) });
   const dayName = el('div.day-name');
   const lastLine = el('p.muted.small', { style: { marginTop: '10px' } });
@@ -98,6 +106,7 @@ export function render(view) {
   const listTitle = el('div.card-title');
   const list = el('div.ex-preview');
   let map = null;
+  let resolved = [];
 
   const lastWorkout = db.workouts[0];
   view.append(
@@ -107,7 +116,7 @@ export function render(view) {
       el('div.stat', {}, el('div.v', {}, `${weekStreak()} wk`), el('div.k', {}, 'Streak')),
       el('div.stat', {}, el('div.v', {}, String(setsThisWeek())), el('div.k', {}, 'Sets this week')),
     ),
-    el('div.card.today-hero', {}, el('div.split-name', {}, split.name), dayName, chips, lastLine),
+    el('div.card.today-hero', {}, el('div.split-name', {}, split.name), dayName, el('div', { style: { margin: '-4px 0 12px' } }, gymPill()), chips, lastLine),
     el('div.card', {}, stage, hint),
     el('div.card', {}, listTitle, list),
   );
@@ -119,40 +128,42 @@ export function render(view) {
     const old = map;
     map = next;
     if (old && !reducedMotion()) {
-      next.classList.add('entering');
-      old.classList.add('leaving');
+      next.classList.add('entering'); old.classList.add('leaving');
       stage.append(next);
       requestAnimationFrame(() => requestAnimationFrame(() => next.classList.remove('entering')));
       setTimeout(() => old.remove(), 340);
-    } else {
-      if (old) old.remove();
-      stage.append(next);
-    }
+    } else { if (old) old.remove(); stage.append(next); }
   }
 
   function renderList() {
-    const exs = day.exerciseIds.map(getExercise).filter(Boolean);
     clear(list);
     const hits = (ex) => !filterMuscle || ex.primary.includes(filterMuscle) || ex.secondary.includes(filterMuscle);
-    const shown = exs.filter(hits);
+    const items = resolved.map((r) => ({ r, ex: getExercise(r.exerciseId) })).filter((x) => x.ex);
+    const shown = items.filter((x) => hits(x.ex));
+    const swaps = resolved.filter((r) => r.status === 'swapped').length;
+    const unavailable = resolved.filter((r) => r.status === 'unavailable').length;
     listTitle.textContent = filterMuscle
-      ? `${shown.length} of ${exs.length} hit ${MUSCLE_NAME[filterMuscle]}`
-      : `${exs.length} exercise${exs.length === 1 ? '' : 's'}`;
+      ? `${shown.length} of ${items.length} hit ${MUSCLE_NAME[filterMuscle]}`
+      : `${items.length} exercise${items.length === 1 ? '' : 's'}${swaps ? ` · ${swaps} swapped for ${gym.name}` : ''}${unavailable ? ` · ${unavailable} unavailable` : ''}`;
     hint.textContent = filterMuscle ? 'Tap the muscle again to clear the filter' : 'Tap a muscle to filter exercises';
-    if (!exs.length) {
-      list.append(emptyState({ icon: 'list', title: 'No exercises yet', text: 'You can still start and add exercises as you go, or edit the day in Splits.' }));
-      return;
-    }
-    for (const ex of exs) {
-      list.append(el('div.ex-line', { class: hits(ex) ? '' : 'dim' },
-        el('span', { style: { color: 'inherit', fontWeight: 600, marginLeft: 0 } }, ex.name),
+    if (!items.length) { list.append(emptyState({ icon: 'list', title: 'No exercises yet', text: 'You can still start and add exercises as you go, or edit the day in Splits.' })); return; }
+    for (const { r, ex } of items) {
+      const row = el('div.ex-line', { class: [!hits(ex) && 'dim', r.status === 'unavailable' && 'unavail'].filter(Boolean).join(' ') },
+        el('div.grow', {},
+          el('div', { style: { fontWeight: 600 } }, ex.name, ' ',
+            r.status === 'swapped' && el('button.chip.swapped', { onclick: () => swapInfoSheet(r, gym) }, 'Swapped'),
+            r.status === 'unavailable' && el('button.chip.swapped.unavail', { onclick: () => swapInfoSheet(r, gym) }, 'Unavailable here')),
+          r.status === 'unavailable' && el('div.why', {}, r.reason),
+        ),
         el('span', {}, muscleNames(ex.primary)),
-      ));
+      );
+      list.append(row);
     }
   }
 
   function update() {
     const isSuggested = day.id === split.days[suggestedIdx].id;
+    resolved = resolveDay(day, gym);
     clear(startBtn);
     append(startBtn, [`Start ${day.name}`, isSuggested && el('span.sub', {}, '· up next')]);
     clear(dayName);
@@ -161,7 +172,7 @@ export function render(view) {
     append(chips, split.days.map((d) => el('button.chip', { class: d.id === day.id ? 'active' : '', onclick: () => { day = d; selectedDayId = d.id; update(); } }, d.name)));
     const lastOfDay = db.workouts.find((w) => w.splitId === split.id && w.dayId === day.id);
     lastLine.textContent = lastOfDay ? `Last done ${fmtDate(lastOfDay.finishedAt)}` : 'Not logged yet';
-    swapMap(day.exerciseIds.map(getExercise).filter(Boolean));
+    swapMap(resolved.filter((r) => r.status !== 'unavailable').map((r) => getExercise(r.exerciseId)).filter(Boolean));
     renderList();
   }
   update();

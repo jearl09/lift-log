@@ -23,6 +23,16 @@ All data lives in your browser's localStorage; export a JSON backup from Setting
 - **Focused workout mode**: one exercise per screen, swipe or arrow keys between them, ± steppers,
   "repeat last" fill, swipe-left to delete a set, long-press to duplicate, long-press the weight
   for the plate calculator, warm-up set generator, PR detection with confetti.
+- **Equipment-aware workouts**: gym profiles (Settings → My gyms) with a 20-item equipment picker
+  and a coverage check showing which muscle groups the selection can train plus the cheapest fix.
+  Split days are resolved against the active gym: unavailable exercises are auto-swapped for the
+  best alternative (same movement pattern, shared secondary muscles, logged before, fewer pieces)
+  and marked "Swapped", or greyed as "Unavailable here" with what's missing. "Build a day for my
+  gym" generates a Push/Pull/Legs/Upper/Lower/Full-body/custom day from the gym's equipment, with
+  per-exercise swaps, save-as-split-day and start-now. During a workout, long-press an exercise
+  title (or tap ⇄) for "Not available right now" substitutes, with an "Always use this at [gym]"
+  option. All rules-based and offline; every exercise carries its equipment requirements,
+  movement pattern and compound/isolation tag in `js/data.js`.
 - **Design**: the "Enamel" system, a boxing-gym enamel-sign look in cream and racing green with one
   signal red, heavy 2px outlines, pills and tiles, and self-hosted Bricolage Grotesque (500/800).
   All tokens live in `:root` in `styles.css`; dark mode swaps the cream and green tokens.
@@ -96,6 +106,8 @@ js/timer.js           rest timer, beep, flash, notification
 js/ui.js              DOM helpers, panel stack, toast, empty states, gestures, units
 js/sheet.js           bottom sheets (confirm / prompt / custom) with swipe-to-dismiss
 js/plates.js          plate calculator sheet + warm-up set generator
+js/engine.js          equipment engine: availability, substitution, day resolution, generation, coverage
+js/icons.js           inline SVG equipment icons
 js/confetti.js        canvas confetti burst for PRs
 js/views/*.js         Today, Workout, Splits, Library, History, Settings screens
 sw.js                 service worker (precache, cache-first, versioned)

@@ -6,6 +6,8 @@
 import { db } from '../db.js';
 import { el, clear, toast, fmtWeight, kgToDisplay, displayToKg, unitLabel, weightStepKg } from '../ui.js';
 import { confirmSheet } from '../sheet.js';
+import { activeGym } from '../engine.js';
+import { openGyms, gymItemCount } from './gyms.js';
 
 const THEME_COLORS = { light: '#F6F1E7', dark: '#122A20' };
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -35,7 +37,7 @@ function diagnostics() {
   const top = cs.paddingTop, bottom = cs.paddingBottom;
   probe.remove();
   const mode = isStandalone() ? 'standalone' : 'browser';
-  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v6`;
+  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v7`;
 }
 
 function isStandalone() {
@@ -68,6 +70,11 @@ export function render(view) {
       el('div.card-title', {}, 'Appearance'),
       el('div.setting-row', {}, el('div', {}, el('div.label', {}, 'Theme'), el('div.hint', {}, 'System follows your device')),
         seg([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], s.theme, (v) => { s.theme = v; db.save('settings'); applyTheme(); rerender(); })),
+    ),
+    el('div.list', {},
+      el('button.list-item', { id: 'my-gyms', onclick: openGyms },
+        el('div.grow', {}, el('div.title', {}, 'My gyms'), el('div.sub', {}, `Active: ${activeGym().name} · ${gymItemCount(activeGym())} items`)),
+        el('span.chev', {}, '›')),
     ),
     el('div.card', {},
       el('div.card-title', {}, 'Training'),

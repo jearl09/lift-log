@@ -10,6 +10,9 @@ import { confirmSheet } from '../sheet.js';
 import { allExercises, getExercise, createExercise, updateExercise, deleteExercise, muscleNames, restFor, exerciseSessions, bestSet, topSetSeries } from '../exercises.js';
 import { createMuscleMap, highlight } from '../muscles.js';
 import { lineChart, sparkline } from './history.js';
+import { equipFor, availability, activeGym, equipmentNames } from '../engine.js';
+import { equipmentIconEl } from '../icons.js';
+import { PATTERNS } from '../data.js';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -91,7 +94,9 @@ export function openExerciseDetail(id) {
           el('div.setting-row', {}, el('span.label', {}, 'Primary'), el('span.muted.small', { style: { textAlign: 'right' } }, muscleNames(ex.primary) || '—')),
           el('div.setting-row', {}, el('span.label', {}, 'Secondary'), el('span.muted.small', { style: { textAlign: 'right' } }, muscleNames(ex.secondary) || '—')),
           el('div.setting-row', {}, el('span.label', {}, 'Rest'), el('span.muted', {}, `${restFor(ex)}s${ex.restSec ? '' : ' (default)'}`)),
+          ex.pattern && el('div.setting-row', {}, el('span.label', {}, 'Pattern'), el('span.muted', {}, `${PATTERNS[ex.pattern] || ex.pattern} · ${ex.kind || 'isolation'}`)),
         ),
+        equipmentCard(ex),
       );
 
       const sessions = exerciseSessions(ex.id);
@@ -145,6 +150,21 @@ export function openExerciseDetail(id) {
       }
     },
   });
+}
+
+function equipmentCard(ex) {
+  const gym = activeGym();
+  const av = availability(ex, gym);
+  const card = el('div.card', {}, el('div.card-title', {}, 'Equipment needed'));
+  equipFor(ex).forEach((set, i) => {
+    card.append(el('div.row', { style: { padding: '6px 0' } },
+      el('span.eq-icons', {}, set.map((id) => equipmentIconEl(id, 22))),
+      el('span.grow', {}, (i ? 'or ' : '') + equipmentNames(set)),
+    ));
+  });
+  card.append(el('p.small', { style: { marginTop: '6px', fontWeight: 800, color: av.ok ? 'var(--green)' : 'var(--red)' } },
+    av.ok ? `Available at ${gym.name}` : `Not available at ${gym.name} · missing ${equipmentNames(av.missing).toLowerCase()}`));
+  return card;
 }
 
 /* ---------- Add / edit form ---------- */

@@ -9,6 +9,7 @@ import { confirmSheet, promptSheet } from '../sheet.js';
 import { getExercise, muscleNames } from '../exercises.js';
 import { createMuscleMap, highlight, combineMuscles } from '../muscles.js';
 import { openLibrary, openExerciseDetail } from './library.js';
+import { openBuilder } from './builder.js';
 
 export function getSplit(id) { return db.splits.find((s) => s.id === id) || null; }
 export function activeSplit() { return getSplit(db.settings.activeSplitId); }
@@ -16,7 +17,7 @@ export function activeSplit() { return getSplit(db.settings.activeSplitId); }
 export function addSplitCopy(src, name = src.name) {
   const split = {
     id: uid('s_'), name,
-    days: src.days.map((d) => ({ id: uid('d_'), name: d.name, exerciseIds: [...d.exerciseIds] })),
+    days: src.days.map((d) => ({ id: uid('d_'), name: d.name, targets: d.targets ? [...d.targets] : [], exerciseIds: [...d.exerciseIds] })),
   };
   db.splits.push(split);
   db.save('splits');
@@ -77,6 +78,7 @@ export function render(view) {
   }
 
   view.append(
+    el('button.btn.primary.block', { id: 'build-day', onclick: openBuilder }, 'Build a day for my gym'),
     el('div.card-title', {}, 'My splits'),
     mine,
     db.splits.length ? el('button.btn.block', { onclick: newSplit }, '+ New custom split') : null,

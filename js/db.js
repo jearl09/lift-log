@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = {
   theme: 'system',      // 'light' | 'dark' | 'system'
   barKg: 20,            // barbell weight for the plate calculator / warm-ups
   activeSplitId: null,
+  activeGymId: null,    // which gym profile is active
   notifications: false, // user opted in to local notifications
 };
 
@@ -45,6 +46,8 @@ export const db = {
   splits: read('splits', []),        // user's splits (copies of presets or custom)
   workouts: read('workouts', []),    // finished workouts, newest first
   active: read('active', null),      // in-progress workout, or null
+  gyms: read('gyms', []),            // gym profiles: { id, name, equipment[] }
+  overrides: read('overrides', {}),  // { gymId: { exerciseId: substituteId } }
   meta: read('meta', { schema: SCHEMA_VERSION }),
 
   save(key) {
@@ -52,7 +55,7 @@ export const db = {
   },
 
   saveAll() {
-    ['settings', 'exercises', 'splits', 'workouts', 'active', 'meta'].forEach((k) => this.save(k));
+    ['settings', 'exercises', 'splits', 'workouts', 'active', 'gyms', 'overrides', 'meta'].forEach((k) => this.save(k));
   },
 
   /** Plain object suitable for JSON export. */
@@ -66,6 +69,8 @@ export const db = {
       splits: this.splits,
       workouts: this.workouts,
       active: this.active,
+      gyms: this.gyms,
+      overrides: this.overrides,
     };
   },
 
@@ -83,6 +88,8 @@ export const db = {
     this.splits = obj.splits;
     this.workouts = obj.workouts;
     this.active = obj.active || null;
+    this.gyms = Array.isArray(obj.gyms) ? obj.gyms : [];
+    this.overrides = obj.overrides && typeof obj.overrides === 'object' ? obj.overrides : {};
     this.meta = { schema: SCHEMA_VERSION };
     this.saveAll();
   },
@@ -96,6 +103,8 @@ export const db = {
     this.splits = [];
     this.workouts = [];
     this.active = null;
+    this.gyms = [];
+    this.overrides = {};
     this.meta = { schema: SCHEMA_VERSION };
   },
 };

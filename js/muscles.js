@@ -129,6 +129,14 @@ export function heat(svg, levels) {
   return heatContinuous(svg, Object.fromEntries(Object.entries(levels).map(([k, l]) => [k, l])));
 }
 
+/** Coverage view: hatch/dim muscles the gym cannot train. */
+export function markUntrainable(svg, ids) {
+  clearMarks(svg);
+  svg.querySelectorAll('.muscle[data-untrainable]').forEach((p) => p.removeAttribute('data-untrainable'));
+  for (const id of ids) paths(svg, id).forEach((p) => (p.dataset.untrainable = '1'));
+  return svg;
+}
+
 /** Mark one muscle as selected (or none). */
 export function select(svg, id) {
   svg.querySelectorAll('.muscle[data-selected]').forEach((p) => p.removeAttribute('data-selected'));

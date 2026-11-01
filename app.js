@@ -7,6 +7,7 @@ import { db } from './js/db.js';
 import { PRESET_SPLITS } from './js/data.js';
 import { $, $$, toast, closeAllPanels } from './js/ui.js';
 import { initTimer } from './js/timer.js';
+import { gyms } from './js/engine.js';
 import { addSplitCopy } from './js/views/splits.js';
 import * as today from './js/views/today.js';
 import * as splits from './js/views/splits.js';
@@ -27,6 +28,7 @@ function seed() {
   db.meta.seeded = true;
   db.save('meta');
 }
+
 
 function showTab(name) {
   current = name;
@@ -67,6 +69,7 @@ function registerSW() {
 function init() {
   settings.applyTheme();
   seed();
+  gyms(); // seeds the default "My gym" with everything selected
 
   $$('.tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   document.addEventListener('app:tab', (e) => showTab(e.detail));

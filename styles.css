@@ -429,3 +429,20 @@ p { margin: 0; }
 .muscle-chip.p { background: var(--red); color: var(--cream); border-color: var(--red); }
 .muscle-chip.s { background: var(--red-2); color: var(--green); border-color: var(--red-2); }
 .muscle-chip .small { font-weight: 500; }
+
+/* ---------- Equipment-aware workouts ---------- */
+.eq-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.eq-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 88px; padding: var(--s3) var(--s1); border: var(--line) solid var(--green); border-radius: var(--r-tile); background: var(--cream); color: var(--green); font-size: var(--fs-small); font-weight: 500; text-align: center; line-height: 1.2; }
+.eq-tile.on { background: var(--green); color: var(--cream); }
+.eq-tile.locked { cursor: default; }
+.eq-tile .eq-icon { flex-shrink: 0; }
+.eq-icons { display: inline-flex; gap: 4px; align-items: center; color: var(--green-2); flex-shrink: 0; }
+.chip.swapped { height: 24px; padding: 0 var(--s2); font-size: 12px; font-weight: 500; border-color: var(--green-2); color: var(--green-2); vertical-align: middle; }
+.chip.swapped.unavail { border-style: dashed; }
+.ex-line.unavail { opacity: 0.55; }
+.why { font-size: var(--fs-small); color: var(--green-2); margin-top: 2px; }
+.muscle-map .muscle[data-untrainable] { fill: var(--cream); stroke-dasharray: 2 1.5; opacity: 0.55; }
+.legend .l-ok::before { background: var(--cream-2); }
+.legend .l-no::before { background: var(--cream); border-style: dashed; }
+.gym-pill { height: 44px; font-size: var(--fs-small); font-weight: 500; }
+.swap-btn { font-size: 22px; }
