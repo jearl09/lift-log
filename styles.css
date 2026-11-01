@@ -529,4 +529,5 @@ p { margin: 0; }
 .vol-bar .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--green); transform: translateX(-1px); }
 .target-input { width: 56px; text-align: center; padding: 0; height: 40px; }
 
-.tile input.long { font-size: 22px; letter-spacing: -0.04em; }
+.tile input.mid { font-size: 24px; letter-spacing: -0.04em; }
+.tile input.long { font-size: 18px; letter-spacing: -0.04em; }

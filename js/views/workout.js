@@ -25,7 +25,7 @@ import { demoTile, openExerciseSheet } from './exercise-sheet.js';
 
 const newSet = () => ({ reps: null, weightKg: null, done: false, rpe: null });
 /** Shrink the tile number when it has 4+ characters (e.g. 62.5, 100). */
-const fitTile = (input) => input.classList.toggle('long', String(input.value || '').length >= 4);
+const fitTile = (input) => { const n = String(input.value || '').length; input.classList.toggle('long', n >= 4); input.classList.toggle('mid', n === 3); };
 const GET_SET_SEC = 5;
 const NEXT_UP_SEC = 3;
 const SUPERSET_REST_DEFAULT = 90;
