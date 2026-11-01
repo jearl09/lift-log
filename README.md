@@ -33,6 +33,13 @@ All data lives in your browser's localStorage; export a JSON backup from Setting
   title (or tap ⇄) for "Not available right now" substitutes, with an "Always use this at [gym]"
   option. All rules-based and offline; every exercise carries its equipment requirements,
   movement pattern and compound/isolation tag in `js/data.js`.
+- **Exercise demos + coaching**: every exercise opens a sheet with photos (crossfading, pausable)
+  or an animated side-view stick figure of its movement pattern, the muscle map, a one-line cue,
+  setup, steps, common mistakes, tempo, equipment needed and your last session. Custom exercises
+  can hold up to two of your own photos (resized, stored in IndexedDB).
+- **Guided workout mode**: turn on "Guide me" on the Today tab for a 5 s "Get set" countdown
+  before each exercise, a 3 s "Next up" screen between exercises, auto-advance after the last set
+  and a summary (duration, sets, volume, muscles hit, PRs) when everything is done.
 - **Design**: the "Enamel" system, a boxing-gym enamel-sign look in cream and racing green with one
   signal red, heavy 2px outlines, pills and tiles, and self-hosted Bricolage Grotesque (500/800).
   All tokens live in `:root` in `styles.css`; dark mode swaps the cream and green tokens.
@@ -87,6 +94,24 @@ Notes for iOS:
 - Data is stored per-site in Safari's storage. If you reinstall the app or clear website
   data you lose it, so export a backup from Settings now and then.
 
+## Exercise photos (import script)
+
+Photos and full instructions come from the public-domain
+[free-exercise-db](https://github.com/yuhonas/free-exercise-db) (CC0 1.0). They are imported once
+with a script, not fetched at runtime, so the app stays offline:
+
+```bash
+cd scripts && npm install && cd ..      # installs sharp for the script only
+node scripts/import-exercises.mjs       # downloads, matches, resizes, writes /exercises
+```
+
+The script matches each library exercise by name using the `ALIASES` table at the top of
+`scripts/import-exercises.mjs` (edit it if something is unmatched; the script prints the three
+closest dataset names), writes `exercises/<id>/0.jpg` and `1.jpg` at max 800px wide, generates
+`js/generated/exercise-db.js` (instructions and dataset muscles mapped onto this app's ids) and
+`sw-media.js` (precache list), and prints the total size of `/exercises`. Our own equipment
+mapping and muscle ids in `js/data.js` are never overwritten. Bump `CACHE_VERSION` afterwards.
+
 ## Updating a deployed app
 
 Edit the files, then bump `CACHE_VERSION` in `sw.js` (for example `v1` → `v2`) and
@@ -108,6 +133,13 @@ js/sheet.js           bottom sheets (confirm / prompt / custom) with swipe-to-di
 js/plates.js          plate calculator sheet + warm-up set generator
 js/engine.js          equipment engine: availability, substitution, day resolution, generation, coverage
 js/icons.js           inline SVG equipment icons
+js/figures.js         eight animated side-view movement figures (SMIL)
+js/coaching.js        setup / steps / cue / mistakes / tempo per exercise
+js/photos.js          user photos in IndexedDB (resize + store)
+js/generated/         exercise-db.js written by the import script
+js/views/exercise-sheet.js  exercise detail sheet + demo tile
+exercises/            dataset photos, 2 per exercise (CC0)
+scripts/              import-exercises.mjs (one-off, needs sharp)
 js/confetti.js        canvas confetti burst for PRs
 js/views/*.js         Today, Workout, Splits, Library, History, Settings screens
 sw.js                 service worker (precache, cache-first, versioned)

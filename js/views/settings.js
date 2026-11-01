@@ -37,7 +37,7 @@ function diagnostics() {
   const top = cs.paddingTop, bottom = cs.paddingBottom;
   probe.remove();
   const mode = isStandalone() ? 'standalone' : 'browser';
-  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v7`;
+  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v8`;
 }
 
 function isStandalone() {
@@ -119,6 +119,11 @@ export function render(view) {
         toast('All data deleted');
         document.dispatchEvent(new CustomEvent('app:reset'));
       } }, 'Reset all data'),
+    ),
+    el('div.card', {},
+      el('div.card-title', {}, 'About'),
+      el('p.small', {}, 'Lift Log is an offline-first personal workout tracker. All data stays on this device.'),
+      el('p.small', { style: { marginTop: '8px' } }, 'Exercise photos and full instructions come from ', el('a', { href: 'https://github.com/yuhonas/free-exercise-db', target: '_blank', rel: 'noopener', style: { color: 'var(--green)', fontWeight: 800 } }, 'free-exercise-db'), ' by yuhonas and contributors, released under CC0 1.0 (public domain). Coaching notes are written for this app.'),
     ),
     el('p.muted.small.center', {}, 'Lift Log · offline-first · data stays on this device'),
     el('p.muted.small.center', {}, diagnostics()),

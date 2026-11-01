@@ -15,6 +15,7 @@ import { equipmentIconEl } from '../icons.js';
 import { activeSplit } from './splits.js';
 import { startWorkout, openWorkout, discardWorkout } from './workout.js';
 import { gymPill } from './gyms.js';
+import { openExerciseSheet } from './exercise-sheet.js';
 
 let selectedDayId = null;
 let lastSeenWorkoutId = null;
@@ -109,8 +110,11 @@ export function render(view) {
   let resolved = [];
 
   const lastWorkout = db.workouts[0];
+  const guideToggle = el('button.toggle', { id: 'guide-toggle', class: db.settings.guideMe ? 'on' : '', 'aria-label': 'Guide me through the workout',
+    onclick: () => { db.settings.guideMe = !db.settings.guideMe; db.save('settings'); guideToggle.classList.toggle('on', db.settings.guideMe); } });
   view.append(
     startBtn,
+    db.active ? null : el('div.row.between.guide-row', {}, el('div', {}, el('div', { style: { fontWeight: 800 } }, 'Guide me'), el('div.small.muted', {}, 'Get-set countdowns, next-up screens, auto-advance')), guideToggle),
     el('div.stats-strip', {},
       el('div.stat', {}, el('div.v', {}, lastWorkout ? relativeDay(lastWorkout.finishedAt) : '—'), el('div.k', {}, 'Last session')),
       el('div.stat', {}, el('div.v', {}, `${weekStreak()} wk`), el('div.k', {}, 'Streak')),
@@ -150,7 +154,7 @@ export function render(view) {
     for (const { r, ex } of items) {
       const row = el('div.ex-line', { class: [!hits(ex) && 'dim', r.status === 'unavailable' && 'unavail'].filter(Boolean).join(' ') },
         el('div.grow', {},
-          el('div', { style: { fontWeight: 600 } }, ex.name, ' ',
+          el('div', { style: { fontWeight: 600 } }, el('button.ex-name', { onclick: () => openExerciseSheet(ex.id, { entry: r.status === 'ok' ? null : r }) }, ex.name), ' ',
             r.status === 'swapped' && el('button.chip.swapped', { onclick: () => swapInfoSheet(r, gym) }, 'Swapped'),
             r.status === 'unavailable' && el('button.chip.swapped.unavail', { onclick: () => swapInfoSheet(r, gym) }, 'Unavailable here')),
           r.status === 'unavailable' && el('div.why', {}, r.reason),

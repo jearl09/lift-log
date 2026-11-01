@@ -1,0 +1,9 @@
+{
+  "name": "lift-log-scripts",
+  "private": true,
+  "description": "One-off tooling for Lift Log. Not part of the app; the app itself has no dependencies.",
+  "type": "module",
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}

@@ -6,6 +6,15 @@
 import { db } from './db.js';
 import { BUILTIN_EXERCISES, MUSCLE_NAME } from './data.js';
 import { uid, est1RM } from './ui.js';
+import { EXERCISE_DB } from './generated/exercise-db.js';
+
+/** Merge dataset-derived secondary muscles into an exercise (ours stay authoritative). */
+function withDataset(ex) {
+  const d = EXERCISE_DB[ex.id];
+  if (!d) return ex;
+  const extra = [...(d.primary || []), ...(d.secondary || [])].filter((m) => !ex.primary.includes(m) && !(ex.secondary || []).includes(m));
+  return extra.length ? { ...ex, secondary: [...(ex.secondary || []), ...extra] } : ex;
+}
 
 const builtinById = new Map(BUILTIN_EXERCISES.map((e) => [e.id, e]));
 
@@ -14,7 +23,7 @@ export function allExercises() {
   const list = [];
   for (const b of BUILTIN_EXERCISES) {
     const o = stored.get(b.id);
-    list.push(o ? { ...b, ...o, builtin: true } : b);
+    list.push(withDataset(o ? { ...b, ...o, builtin: true } : b));
     stored.delete(b.id);
   }
   for (const c of stored.values()) list.push({ ...c, builtin: false });
@@ -24,7 +33,7 @@ export function allExercises() {
 export function getExercise(id) {
   const stored = db.exercises.find((e) => e.id === id);
   const b = builtinById.get(id);
-  if (b) return stored ? { ...b, ...stored, builtin: true } : b;
+  if (b) return withDataset(stored ? { ...b, ...stored, builtin: true } : b);
   if (stored) return { ...stored, builtin: false };
   return null;
 }

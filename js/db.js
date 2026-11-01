@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   barKg: 20,            // barbell weight for the plate calculator / warm-ups
   activeSplitId: null,
   activeGymId: null,    // which gym profile is active
+  guideMe: false,       // guided workout mode (Get set / Next up screens)
   notifications: false, // user opted in to local notifications
 };
 

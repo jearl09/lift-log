@@ -11,6 +11,7 @@ import { confirmSheet } from '../sheet.js';
 import { getExercise, bestSet } from '../exercises.js';
 import { createMuscleMap, heatContinuous } from '../muscles.js';
 import { openExerciseDetail } from './library.js';
+import { openExerciseSheet } from './exercise-sheet.js';
 
 /* ---------- Weekly muscle load ---------- */
 
@@ -168,7 +169,7 @@ export function openWorkoutDetail(id) {
         );
         body.append(el('div.card', {},
           el('div.row.between', {},
-            el('button', { style: { fontWeight: 700, fontSize: '17px', textAlign: 'left', minHeight: '32px' }, onclick: () => openExerciseDetail(e.exerciseId) }, e.name, ' ›'),
+            el('button', { style: { fontWeight: 700, fontSize: '17px', textAlign: 'left', minHeight: '32px' }, onclick: () => openExerciseSheet(e.exerciseId, { onDetails: openExerciseDetail }) }, e.name, ' ›'),
             best && el('span.badge.soft', {}, `best ${best.reps}×${best.weightKg != null ? fmtWeight(best.weightKg, false) : 'BW'}`),
           ),
           table,

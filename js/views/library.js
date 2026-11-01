@@ -13,6 +13,7 @@ import { lineChart, sparkline } from './history.js';
 import { equipFor, availability, activeGym, equipmentNames } from '../engine.js';
 import { equipmentIconEl } from '../icons.js';
 import { PATTERNS } from '../data.js';
+import { openExerciseSheet, demoArea } from './exercise-sheet.js';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -60,7 +61,7 @@ export function openLibrary({ pick = null, title = 'Exercises' } = {}) {
         }
         for (const ex of rows) {
           list.append(el('button.list-item', {
-            onclick: () => { if (pick) { pick(ex.id); popPanel(); } else openExerciseDetail(ex.id); },
+            onclick: () => { if (pick) { pick(ex.id); popPanel(); } else openExerciseSheet(ex.id, { onDetails: openExerciseDetail }); },
           },
             el('div.grow', {},
               el('div.title', {}, ex.name, !ex.builtin && el('span.badge.soft', { style: { marginLeft: '8px' } }, 'custom')),
@@ -87,6 +88,7 @@ export function openExerciseDetail(id) {
       p.setAction('Edit', () => openExerciseForm(ex));
 
       body.append(
+        el('div.card', {}, demoArea(ex, { allowUpload: true })),
         el('div.card', {}, highlight(createMuscleMap(), ex),
           el('div.legend', {}, el('span.l-primary', {}, 'Primary'), el('span.l-secondary', {}, 'Secondary'))),
         el('div.card', {},

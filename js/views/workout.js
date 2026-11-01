@@ -1,15 +1,14 @@
 /* ==========================================================================
-   views/workout.js — focused workout mode.
+   views/workout.js — focused + guided workout mode.
 
-   One exercise per slide, horizontal swipe / arrow keys between them. Set
-   rows have ± steppers, ghost text from last session, swipe-left to delete,
-   long-press to duplicate (long-press the weight opens the plate calculator).
-   Long-press an exercise title (or tap ⇄) for "Not available right now"
-   substitutes from the active gym. db.active autosaves on every change.
+   One exercise per slide with a demo tile header. Guided mode ("Guide me")
+   adds a 5 s "Get set" countdown before each exercise, a 3 s "Next up"
+   screen between exercises, auto-advance after the last set, and a summary
+   when the final set is done. db.active autosaves on every change.
    ========================================================================== */
 
 import { db } from '../db.js';
-import { $, el, clear, uid, pushPanel, closeAllPanels, toast, fmtDuration, fmtWeight, kgToDisplay, displayToKg, unitLabel, weightStepKg, est1RM, longPress, emptyState, reducedMotion } from '../ui.js';
+import { $, el, append, clear, uid, pushPanel, closeAllPanels, toast, fmtDuration, fmtWeight, kgToDisplay, displayToKg, unitLabel, weightStepKg, est1RM, longPress, emptyState, reducedMotion } from '../ui.js';
 import { confirmSheet, openSheet, closeSheet } from '../sheet.js';
 import { getExercise, lastSets, restFor, muscleNames, bestEst1RM } from '../exercises.js';
 import { activeGym, resolveDay, substitutes, usedEquipment, equipmentNames, setOverride } from '../engine.js';
@@ -17,20 +16,27 @@ import { equipmentIconEl } from '../icons.js';
 import { timer } from '../timer.js';
 import { burst } from '../confetti.js';
 import { openPlateCalc, warmupSets } from '../plates.js';
+import { createMuscleMap, highlight, combineMuscles } from '../muscles.js';
+import { coachingFor } from '../coaching.js';
 import { openLibrary } from './library.js';
+import { demoTile, openExerciseSheet } from './exercise-sheet.js';
 
 const newSet = () => ({ reps: null, weightKg: null, done: false });
+const GET_SET_SEC = 5;
+const NEXT_UP_SEC = 3;
 let idx = 0;
 let panelRef = null;
 let keyHandler = null;
 let elapsedInterval = null;
+let overlayTimer = null;
+let goToFn = null;
+let overlayNode = null;
 
 function initialSets(exerciseId, suggested) {
   const n = lastSets(exerciseId).length || suggested || 3;
   return Array.from({ length: n }, newSet);
 }
 
-/** Start a session from a split day, resolved against the active gym. */
 export function startWorkout(split, day) {
   if (db.active) { openWorkout(); return; }
   const gym = activeGym();
@@ -43,11 +49,12 @@ export function startWorkout(split, day) {
   if (skipped.length) toast(`${skipped.length} exercise${skipped.length === 1 ? '' : 's'} unavailable at ${gym.name} left out`, { duration: 3500 });
 }
 
-/** Generic session start. entries: [{ exerciseId, reason?, swappedFrom?, suggestedSets?, targetReps? }] */
+/** entries: [{ exerciseId, reason?, swappedFrom?, suggestedSets?, targetReps? }] */
 export function startSession({ splitId, splitName, dayId, dayName, entries }) {
   if (db.active) { openWorkout(); return; }
   db.active = {
     id: uid('w_'), splitId, splitName, dayId, dayName, gymId: activeGym().id,
+    guide: !!db.settings.guideMe, guideIntro: !!db.settings.guideMe,
     startedAt: Date.now(),
     exercises: entries.map((e) => ({ ex: getExercise(e.exerciseId), e })).filter((x) => x.ex)
       .map(({ ex, e }) => ({ exerciseId: ex.id, name: ex.name, sets: initialSets(ex.id, e.suggestedSets), reason: e.reason || '', swappedFrom: e.swappedFrom || null, targetReps: e.targetReps || null })),
@@ -68,10 +75,8 @@ export function discardWorkout() {
 
 const save = () => db.save('active');
 
-async function finishWorkout() {
-  const a = db.active;
-  if (!a) return;
-  const exercises = a.exercises
+function finishedExercises(a) {
+  return a.exercises
     .map((e) => ({
       exerciseId: e.exerciseId, name: e.name,
       ...(e.swappedFrom ? { swappedFrom: e.swappedFrom } : {}),
@@ -79,7 +84,12 @@ async function finishWorkout() {
         .map((s) => ({ reps: s.reps, weightKg: s.weightKg, ...(s.warmup ? { warmup: true } : {}), ...(s.pr ? { pr: true } : {}) })),
     }))
     .filter((e) => e.sets.length);
+}
 
+async function finishWorkout() {
+  const a = db.active;
+  if (!a) return;
+  const exercises = finishedExercises(a);
   if (!exercises.length) {
     if (await confirmSheet('No sets were completed, so there is nothing to save.', { title: 'Discard workout?', confirmLabel: 'Discard', danger: true })) { discardWorkout(); closeAllPanels(); }
     return;
@@ -107,8 +117,9 @@ export function openWorkout() {
     action: { label: 'Finish', onclick: finishWorkout },
     onClose() {
       clearInterval(elapsedInterval); elapsedInterval = null;
+      clearInterval(overlayTimer); overlayTimer = null;
       if (keyHandler) { document.removeEventListener('keydown', keyHandler); keyHandler = null; }
-      panelRef = null;
+      panelRef = null; goToFn = null; overlayNode = null;
     },
     render(body) { build(body); },
   });
@@ -137,6 +148,7 @@ function build(body) {
   a.exercises.forEach((entry, i) => track.append(slide(entry, i, updateMeta)));
   track.append(addSlide());
   const carousel = el('div.carousel', {}, track);
+  const overlay = el('div.wk-overlay.hidden');
 
   const dots = el('div.dots');
   const prev = el('button.icon-btn', { 'aria-label': 'Previous exercise', onclick: () => goTo(idx - 1) }, '‹');
@@ -149,7 +161,7 @@ function build(body) {
     ),
   );
 
-  body.append(el('div.wk', {}, el('div.wk-top', {}, elapsed, count), el('div.wk-progress', {}, progFill), carousel, bottom));
+  body.append(el('div.wk', {}, el('div.wk-top', {}, elapsed, count), el('div.wk-progress', {}, progFill), carousel, bottom, overlay));
 
   const slides = () => a.exercises.length + 1;
   function goTo(i) {
@@ -165,6 +177,8 @@ function build(body) {
     next.disabled = idx === slides() - 1;
   }
   goTo(idx);
+  goToFn = goTo;
+  overlayNode = overlay;
 
   let sx = 0, sy = 0, dx = 0, decided = false, horizontal = false, fromRow = false, t0 = 0;
   carousel.addEventListener('touchstart', (e) => {
@@ -199,7 +213,116 @@ function build(body) {
     if (e.key === 'ArrowLeft') goTo(idx - 1);
   };
   document.addEventListener('keydown', keyHandler);
+
+  // Guided intro: "Get set" before the first exercise of a fresh guided session.
+  if (a.guide && a.guideIntro && a.exercises.length && !a.exercises.some((e) => e.sets.some((s) => s.done))) {
+    a.guideIntro = false; save();
+    showGetSet(0);
+  }
 }
+
+/* ---------- Guided overlays ---------- */
+
+function overlayEl() { return overlayNode && overlayNode.isConnected ? overlayNode : null; }
+
+function hideOverlay() {
+  clearInterval(overlayTimer); overlayTimer = null;
+  const o = overlayEl();
+  if (o) { o.classList.add('hidden'); clear(o); }
+}
+
+function countdown(node, seconds, onDone) {
+  let n = seconds;
+  node.textContent = String(n);
+  clearInterval(overlayTimer);
+  overlayTimer = setInterval(() => {
+    n -= 1;
+    if (n <= 0) { hideOverlay(); onDone(); return; }
+    node.textContent = String(n);
+  }, 1000);
+}
+
+function targetLine(entry) {
+  const last = lastSets(entry.exerciseId);
+  if (last.length) return `Last: ${last.map((s) => `${s.reps}×${s.weightKg != null ? fmtWeight(s.weightKg, false) : 'BW'}`).join('  ')}`;
+  return `Target: ${entry.sets.length} × ${entry.targetReps || 8}`;
+}
+
+function showGetSet(i) {
+  const a = db.active; const o = overlayEl();
+  if (!a || !o || !a.exercises[i]) return;
+  const entry = a.exercises[i];
+  const ex = getExercise(entry.exerciseId);
+  const coach = coachingFor(entry.exerciseId);
+  clear(o); o.classList.remove('hidden'); o.dataset.mode = 'getset';
+  const num = el('div.count');
+  append(o, [
+    el('div.label', {}, 'Get set'),
+    demoTile(ex, { size: 160, onclick: () => openExerciseSheet(ex.id, { entry }) }),
+    el('h2', {}, entry.name),
+    coach && el('p.small', {}, coach.setup),
+    num,
+    el('button.btn.sm', { onclick: () => hideOverlay() }, 'Skip'),
+  ]);
+  countdown(num, GET_SET_SEC, () => {});
+}
+
+function showNextUp(i) {
+  const a = db.active; const o = overlayEl();
+  if (!a || !o || !a.exercises[i]) return;
+  const entry = a.exercises[i];
+  const ex = getExercise(entry.exerciseId);
+  clear(o); o.classList.remove('hidden'); o.dataset.mode = 'nextup';
+  const num = el('div.count');
+  const go = () => { hideOverlay(); goToFn && goToFn(i); showGetSet(i); };
+  append(o, [
+    el('div.label', {}, 'Next up'),
+    demoTile(ex, { size: 160, onclick: () => openExerciseSheet(ex.id, { entry }) }),
+    el('h2', {}, entry.name),
+    el('p.small', {}, `${entry.sets.length} set${entry.sets.length === 1 ? '' : 's'} · ${targetLine(entry)}`),
+    num,
+    el('button.btn.sm', { onclick: go }, 'Skip'),
+  ]);
+  countdown(num, NEXT_UP_SEC, go);
+}
+
+function showSummary() {
+  const a = db.active; const o = overlayEl();
+  if (!a || !o) return;
+  clear(o); o.classList.remove('hidden'); o.dataset.mode = 'summary';
+  const done = a.exercises.flatMap((e) => e.sets.filter((s) => s.done));
+  const volume = done.reduce((v, s) => v + (s.weightKg || 0) * s.reps, 0);
+  const prs = done.filter((s) => s.pr).length;
+  const hit = a.exercises.filter((e) => e.sets.some((s) => s.done)).map((e) => getExercise(e.exerciseId));
+  append(o, [
+    el('div.label', {}, 'All sets done'),
+    el('h2', {}, a.dayName),
+    el('div.stats.summary-stats', {},
+      el('div.stat', {}, el('div.v', {}, fmtDuration((Date.now() - a.startedAt) / 1000)), el('div.k', {}, 'Duration')),
+      el('div.stat', {}, el('div.v', {}, String(done.length)), el('div.k', {}, 'Sets')),
+      el('div.stat', {}, el('div.v', {}, volume ? fmtWeight(volume) : '—'), el('div.k', {}, 'Volume')),
+    ),
+    el('div.summary-map', {}, highlight(createMuscleMap(), combineMuscles(hit))),
+    el('p.small', {}, prs ? `${prs} personal record${prs === 1 ? '' : 's'} 🎉` : 'No new records this time. Consistency wins.'),
+    el('button.btn.primary.block', { id: 'wk-summary-finish', onclick: finishWorkout }, 'Finish workout'),
+    el('button.btn.ghost.sm', { onclick: () => hideOverlay() }, 'Keep going'),
+  ]);
+}
+
+/** Called after a set completes; drives auto-advance in guided mode. */
+function afterSetComplete(entry) {
+  const a = db.active;
+  if (!a || !entry.sets.every((s) => s.done)) return;
+  const i = a.exercises.indexOf(entry);
+  const allDone = a.exercises.every((e) => e.sets.length && e.sets.every((s) => s.done));
+  if (allDone) { setTimeout(showSummary, 600); return; }
+  if (!a.guide) return;
+  const nextIdx = a.exercises.findIndex((e, k) => k > i && !e.sets.every((s) => s.done));
+  const target = nextIdx >= 0 ? nextIdx : a.exercises.findIndex((e) => !e.sets.every((s) => s.done));
+  if (target >= 0) setTimeout(() => showNextUp(target), 600);
+}
+
+/* ---------- Add / remove ---------- */
 
 function addExercise() {
   openLibrary({
@@ -275,8 +398,9 @@ function slide(entry, i, updateMeta) {
 }
 
 function slideContent(entry, i, ctx) {
-  const ex = getExercise(entry.exerciseId) || { name: entry.name, primary: [], secondary: [], equipment: 'other', restSec: null };
+  const ex = getExercise(entry.exerciseId) || { id: entry.exerciseId, name: entry.name, primary: [], secondary: [], equipment: 'other', restSec: null };
   const last = lastSets(entry.exerciseId);
+  const coach = coachingFor(entry.exerciseId);
   const lastSummary = last.length
     ? `Last: ${last.map((s) => `${s.reps}×${s.weightKg != null ? fmtWeight(s.weightKg, false) : 'BW'}`).join('  ')}`
     : (entry.targetReps ? `Suggested: ${entry.sets.length} × ${entry.targetReps} reps` : 'No previous session');
@@ -294,9 +418,11 @@ function slideContent(entry, i, ctx) {
     const s = entry.sets.find((x) => !x.warmup && x.weightKg != null);
     return s ? s.weightKg : (last[0] && last[0].weightKg != null ? last[0].weightKg : null);
   };
+  const openSheet_ = () => openExerciseSheet(ex.id, { entry });
 
   const head = el('div.wk-ex-head.grow', {},
-    el('div.name', {}, entry.name, entry.swappedFrom && el('span.chip.swapped', { style: { marginLeft: '8px', verticalAlign: 'middle' } }, 'Swapped')),
+    el('button.name-btn', { onclick: openSheet_ }, el('span.name', {}, entry.name), entry.swappedFrom && el('span.chip.swapped', { style: { marginLeft: '8px', verticalAlign: 'middle' } }, 'Swapped')),
+    coach && el('div.cue-line', {}, coach.cue),
     el('div.meta', {}, `${muscleNames(ex.primary)} · rest ${restFor(ex)}s`),
     entry.reason && el('div.why', {}, `Why this exercise? ${entry.reason}`),
     el('div.last', {}, lastSummary),
@@ -305,12 +431,15 @@ function slideContent(entry, i, ctx) {
 
   return el('div.slide-inner', {},
     el('div.row', { style: { alignItems: 'flex-start' } },
+      demoTile(ex, { size: 96, onclick: openSheet_ }),
       head,
-      el('button.icon-btn.swap-btn', { 'aria-label': 'Not available right now', title: 'Swap exercise', onclick: () => openSwapSheet(entry, i) }, '⇄'),
-      el('button.icon-btn.danger', { 'aria-label': 'Remove exercise', onclick: async () => {
-        if (entry.sets.some((s) => s.done) && !(await confirmSheet(`Logged sets for ${entry.name} will be lost.`, { title: 'Remove exercise?', confirmLabel: 'Remove', danger: true }))) return;
-        db.active.exercises.splice(i, 1); save(); idx = Math.max(0, i - 1); panelRef && panelRef.refresh();
-      } }, '✕'),
+      el('div.stack', { style: { gap: '0' } },
+        el('button.icon-btn.swap-btn', { 'aria-label': 'Not available right now', title: 'Swap exercise', onclick: () => openSwapSheet(entry, i) }, '⇄'),
+        el('button.icon-btn.danger', { 'aria-label': 'Remove exercise', onclick: async () => {
+          if (entry.sets.some((s) => s.done) && !(await confirmSheet(`Logged sets for ${entry.name} will be lost.`, { title: 'Remove exercise?', confirmLabel: 'Remove', danger: true }))) return;
+          db.active.exercises.splice(i, 1); save(); idx = Math.max(0, i - 1); panelRef && panelRef.refresh();
+        } }, '✕'),
+      ),
     ),
     el('div.wk-actions', {},
       el('button.btn.sm', { disabled: !last.length, onclick: () => {
@@ -459,14 +588,17 @@ function setRow(entry, ex, set, si, ghost, isCurrent, ctx) {
       if (target >= 0 && rows[target]) { rows[target].classList.add('current'); rows[target].scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); }
 
       timer.start(restFor(ex), { exerciseId: entry.exerciseId, exerciseName: entry.name });
+      save();
+      ctx.updateMeta();
+      afterSetComplete(entry);
     } else {
       set.done = false;
       set.pr = false;
       row.classList.remove('done');
       row.querySelector('.pr-star') && row.querySelector('.pr-star').remove();
+      save();
+      ctx.updateMeta();
     }
-    save();
-    ctx.updateMeta();
     const dot = $('.dots .dot.active');
     if (dot) dot.classList.toggle('done', entry.sets.every((s) => s.done));
   }

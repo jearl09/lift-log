@@ -10,6 +10,7 @@ import { getExercise, muscleNames } from '../exercises.js';
 import { createMuscleMap, highlight, combineMuscles } from '../muscles.js';
 import { openLibrary, openExerciseDetail } from './library.js';
 import { openBuilder } from './builder.js';
+import { openExerciseSheet } from './exercise-sheet.js';
 
 export function getSplit(id) { return db.splits.find((s) => s.id === id) || null; }
 export function activeSplit() { return getSplit(db.settings.activeSplitId); }
@@ -168,7 +169,7 @@ export function openDay(splitId, dayId) {
       day.exerciseIds.forEach((id, i) => {
         const ex = exs[i];
         list.append(el('div.list-item', {},
-          el('button.grow', { style: { textAlign: 'left', minHeight: '44px' }, onclick: () => ex && openExerciseDetail(ex.id) },
+          el('button.grow', { style: { textAlign: 'left', minHeight: '44px' }, onclick: () => ex && openExerciseSheet(ex.id, { onDetails: openExerciseDetail }) },
             el('div.title', {}, ex ? ex.name : 'Unknown exercise'),
             el('div.sub.ellipsis', {}, ex ? muscleNames(ex.primary) : id),
           ),

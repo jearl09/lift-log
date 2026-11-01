@@ -1,5 +1,4 @@
-# Screenshots and local notes dropped into the project folder
-*.jpg
-*.jpeg
-*.png
-!icons/*.png
+# Screenshots dropped into the project root (exercise photos live in /exercises)
+/*.jpg
+/*.jpeg
+/*.png
