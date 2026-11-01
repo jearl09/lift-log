@@ -41,7 +41,7 @@
 
   --tap: 48px;
   --header-h: 56px;
-  --tab-h: 72px;
+  --tabbar-h: 72px;            /* the bar's real content height, excluding the safe-area padding */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -60,9 +60,9 @@
 /* ---------- Reset / base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
-html { -webkit-text-size-adjust: 100%; background: var(--cream-2); }
+html { -webkit-text-size-adjust: 100%; background: var(--cream); }
 body {
-  background: var(--cream-2);
+  background: var(--cream);
   color: var(--green);
   font: 500 var(--fs-body)/1.4 var(--font);
   -webkit-font-smoothing: antialiased;
@@ -96,6 +96,7 @@ p { margin: 0; }
 /* ---------- App shell + phone frame ---------- */
 #app { position: fixed; inset: 0; background: var(--cream); overflow: hidden; margin: 0 auto; max-width: 430px; }
 @media (min-width: 500px) {
+  html, body { background: var(--cream-2); }
   #app {
     --safe-top: 44px; --safe-bottom: 18px;
     position: relative; width: 430px; height: min(880px, calc(100vh - 48px));
@@ -125,7 +126,7 @@ p { margin: 0; }
 }
 #main {
   position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: calc(var(--header-h) + var(--safe-top) + var(--s2)) calc(var(--s4) + var(--safe-right)) calc(var(--tab-h) + var(--safe-bottom) + var(--s6)) calc(var(--s4) + var(--safe-left));
+  padding: calc(var(--header-h) + var(--safe-top) + var(--s2)) calc(var(--s4) + var(--safe-right)) calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px) calc(var(--s4) + var(--safe-left));
   scrollbar-width: none;
 }
 #main::-webkit-scrollbar { display: none; }
@@ -133,8 +134,8 @@ p { margin: 0; }
 
 .tabbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  height: calc(var(--tab-h) + var(--safe-bottom));
-  padding: var(--s2) calc(var(--s3) + var(--safe-right)) var(--safe-bottom) calc(var(--s3) + var(--safe-left));
+  box-sizing: content-box; height: calc(var(--tabbar-h) - var(--s2) - var(--line));
+  padding: var(--s2) calc(var(--s3) + var(--safe-right)) env(safe-area-inset-bottom, 0px) calc(var(--s3) + var(--safe-left));
   display: flex; gap: var(--s2);
   background: var(--cream); border-top: var(--line) solid var(--green); z-index: 20;
 }
@@ -333,7 +334,7 @@ p { margin: 0; }
 
 /* ---------- Rest timer ---------- */
 .timer-bar {
-  position: absolute; left: var(--s3); right: var(--s3); bottom: calc(var(--tab-h) + var(--safe-bottom) + var(--s3));
+  position: absolute; left: var(--s3); right: var(--s3); bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + var(--s3));
   min-height: 64px; padding: var(--s2) var(--s4); background: var(--cream); color: var(--green);
   border: var(--line) solid var(--green); border-radius: var(--r-tile);
   display: flex; align-items: center; gap: var(--s2); z-index: 40; cursor: pointer; overflow: hidden;
@@ -376,7 +377,7 @@ p { margin: 0; }
 .confetti { position: absolute; inset: 0; z-index: 65; pointer-events: none; width: 100%; height: 100%; }
 
 /* ---------- Toast ---------- */
-.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + var(--safe-bottom) + var(--s5)); background: var(--green); color: var(--cream); padding: var(--s3) var(--s5); border-radius: var(--r-pill); font-weight: 800; font-size: var(--fs-small); z-index: 70; max-width: 90%; text-align: center; white-space: nowrap; animation: toast-in var(--dur-slow) var(--ease-spring); }
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + var(--s5)); background: var(--green); color: var(--cream); padding: var(--s3) var(--s5); border-radius: var(--r-pill); font-weight: 800; font-size: var(--fs-small); z-index: 70; max-width: 90%; text-align: center; white-space: nowrap; animation: toast-in var(--dur-slow) var(--ease-spring); }
 @keyframes toast-in { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
 .toast .btn { margin-left: var(--s2); height: 32px; padding: 0 var(--s3); background: var(--cream); color: var(--green); border: 0; font-size: var(--fs-small); }
 
