@@ -16,6 +16,8 @@ import { activeSplit } from './splits.js';
 import { startWorkout, openWorkout, discardWorkout } from './workout.js';
 import { gymPill } from './gyms.js';
 import { openExerciseSheet } from './exercise-sheet.js';
+import { suggest, fmtSuggestionLine } from '../progression.js';
+import { underTargetLine } from '../volume.js';
 
 let selectedDayId = null;
 let lastSeenWorkoutId = null;
@@ -110,10 +112,14 @@ export function render(view) {
   let resolved = [];
 
   const lastWorkout = db.workouts[0];
+  const nextLines = el('div.next-lines');
+  const nudge = underTargetLine();
   const guideToggle = el('button.toggle', { id: 'guide-toggle', class: db.settings.guideMe ? 'on' : '', 'aria-label': 'Guide me through the workout',
     onclick: () => { db.settings.guideMe = !db.settings.guideMe; db.save('settings'); guideToggle.classList.toggle('on', db.settings.guideMe); } });
   view.append(
     startBtn,
+    nextLines,
+    nudge && el('p.small.nudge', { id: 'volume-nudge' }, nudge),
     db.active ? null : el('div.row.between.guide-row', {}, el('div', {}, el('div', { style: { fontWeight: 800 } }, 'Guide me'), el('div.small.muted', {}, 'Get-set countdowns, next-up screens, auto-advance')), guideToggle),
     el('div.stats-strip', {},
       el('div.stat', {}, el('div.v', {}, lastWorkout ? relativeDay(lastWorkout.finishedAt) : '—'), el('div.k', {}, 'Last session')),
@@ -178,6 +184,16 @@ export function render(view) {
     lastLine.textContent = lastOfDay ? `Last done ${fmtDate(lastOfDay.finishedAt)}` : 'Not logged yet';
     swapMap(resolved.filter((r) => r.status !== 'unavailable').map((r) => getExercise(r.exerciseId)).filter(Boolean));
     renderList();
+    clear(nextLines);
+    const lines = [];
+    for (const r of resolved) {
+      if (r.status === 'unavailable' || lines.length >= 3) continue;
+      const ex = getExercise(r.exerciseId); const t = ex && suggest(ex.id);
+      const line = t && fmtSuggestionLine(ex.name, t);
+      if (line) lines.push(line);
+    }
+    nextLines.classList.toggle('hidden', !lines.length || !!db.active);
+    append(nextLines, lines.map((l) => el('div.next-line', {}, l)));
   }
   update();
 }

@@ -12,6 +12,9 @@ import { getExercise, bestSet } from '../exercises.js';
 import { createMuscleMap, heatContinuous } from '../muscles.js';
 import { openExerciseDetail } from './library.js';
 import { openExerciseSheet } from './exercise-sheet.js';
+import { weeklyRows, weekStart } from '../volume.js';
+import { openSheet } from '../sheet.js';
+import { fmtEffort } from '../ui.js';
 
 /* ---------- Weekly muscle load ---------- */
 
@@ -32,7 +35,7 @@ export function weeklyMuscleLoad() {
   return load;
 }
 
-function heatmapCard() {
+function heatmapCardLegacy() {
   const load = weeklyMuscleLoad();
   const map = heatContinuous(createMuscleMap(), load);
   const top = Object.entries(load).sort((a, b) => b[1] - a[1]).slice(0, 8);
@@ -45,6 +48,48 @@ function heatmapCard() {
           top.map(([m, s]) => el('span.chip', {}, `${MUSCLE_NAME[m] || m} ${Math.round(s)}`)))
       : el('p.muted.small.center', { style: { marginTop: '10px' } }, 'No sets logged in the last 7 days.'),
   );
+}
+
+/* ---------- This week: volume vs targets ---------- */
+
+function weekCard() {
+  const rows = weeklyRows();
+  const loads = Object.fromEntries(rows.map((r) => [r.muscle, r.count]));
+  const map = heatContinuous(createMuscleMap(), loads);
+  const mode = db.settings.weekMode === 'calendar' ? `from ${fmtDate(weekStart(), { weekday: 'short', day: 'numeric', month: 'short' })}` : 'rolling 7 days';
+  const list = el('div.vol-list');
+  for (const r of rows) {
+    const [min, max] = r.range;
+    const scale = Math.max(max * 1.25, r.count, 1);
+    const pct = (v) => `${Math.min(100, (v / scale) * 100)}%`;
+    list.append(el('button.vol-row', { class: r.status.toLowerCase().replace(' ', '-'), dataset: { muscle: r.muscle }, onclick: () => contributorsSheet(r) },
+      el('div.row.between', {}, el('span.vol-name', {}, r.name), el('span.vol-num', {}, `${Math.round(r.count * 10) / 10}`, el('span.vol-status', {}, r.status))),
+      el('div.vol-bar', {}, el('i.fill', { style: { width: pct(r.count) } }), el('i.tick', { style: { left: pct(min) } }), el('i.tick', { style: { left: pct(max) } })),
+    ));
+  }
+  return el('div.card', {},
+    el('div.card-title', {}, `This week · ${mode}`),
+    map,
+    el('div.legend', {}, el('span.l-grad', {}, 'fewer → more hard sets')),
+    el('p.muted.small', { style: { margin: '8px 0' } }, 'Hard sets: 5+ reps or RPE 7+. Primary muscle counts 1, each secondary 0.5. Ticks mark your target range.'),
+    list,
+  );
+}
+
+function contributorsSheet(r) {
+  openSheet({
+    title: r.name,
+    text: `${Math.round(r.count * 10) / 10} hard sets this week · target ${r.range[0]}–${r.range[1]} · ${r.status}`,
+    render(body) {
+      if (!r.contributors.length) { body.append(el('p.muted.small', {}, 'Nothing logged for this muscle this week.')); return; }
+      const list = el('div.list');
+      for (const c of r.contributors.sort((a, b) => b.sets * b.credit - a.sets * a.credit)) {
+        list.append(el('div.list-item', {}, el('div.grow', {}, el('div.title', {}, c.name), el('div.sub', {}, `${c.sets} set${c.sets === 1 ? '' : 's'} × ${c.credit} = ${c.sets * c.credit}`))));
+      }
+      body.append(list);
+    },
+    actions: [{ label: 'Close' }],
+  });
 }
 
 /* ---------- Contribution calendar (12 weeks) ---------- */
@@ -101,7 +146,7 @@ function calendarCard() {
 
 export function render(view) {
   clear(view);
-  view.append(calendarCard(), heatmapCard());
+  view.append(calendarCard(), weekCard());
 
   if (!db.workouts.length) {
     view.append(el('div.card', {}, emptyState({
@@ -160,7 +205,7 @@ export function openWorkoutDetail(id) {
         const table = el('table.sets-table', {},
           e.sets.map((s, i) => el('tr', {},
             el('td', {}, s.warmup ? 'W' : String(i + 1)),
-            el('td', {}, `${s.reps} reps`),
+            el('td', {}, `${s.reps} reps`, s.rpe != null && el('span.muted.small', {}, ` · ${fmtEffort(s.rpe)}`)),
             el('td', {}, s.weightKg != null ? fmtWeight(s.weightKg) : 'Bodyweight'),
             el('td', { style: { textAlign: 'right' } },
               s.pr && el('span.badge.pr', { style: { marginRight: '6px' } }, 'PR'),
@@ -169,7 +214,7 @@ export function openWorkoutDetail(id) {
         );
         body.append(el('div.card', {},
           el('div.row.between', {},
-            el('button', { style: { fontWeight: 700, fontSize: '17px', textAlign: 'left', minHeight: '32px' }, onclick: () => openExerciseSheet(e.exerciseId, { onDetails: openExerciseDetail }) }, e.name, ' ›'),
+            el('button', { style: { fontWeight: 700, fontSize: '17px', textAlign: 'left', minHeight: '32px' }, onclick: () => openExerciseSheet(e.exerciseId, { onDetails: openExerciseDetail }) }, e.group && el('span.ss-label', {}, e.group), e.name, ' ›'),
             best && el('span.badge.soft', {}, `best ${best.reps}×${best.weightKg != null ? fmtWeight(best.weightKg, false) : 'BW'}`),
           ),
           table,

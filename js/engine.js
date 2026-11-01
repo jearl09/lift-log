@@ -13,6 +13,7 @@ import { db } from './db.js';
 import { EQUIPMENT_TYPES, EQUIPMENT_BY_ID, ALL_EQUIPMENT_IDS, MUSCLES, MUSCLE_NAME, DAY_TARGETS, PATTERNS } from './data.js';
 import { allExercises, getExercise, exerciseSessions } from './exercises.js';
 import { uid } from './ui.js';
+import { underTargetSet } from './volume.js';
 
 /* ---------- Gyms ---------- */
 
@@ -119,6 +120,7 @@ const loggedCount = (id) => exerciseSessions(id).length;
  */
 export function scoreSubstitute(orig, cand) {
   let s = 0;
+  if (underTargetSet().has(cand.primary[0])) s += 15;
   if (orig.pattern && cand.pattern === orig.pattern) s += 100;
   if (cand.kind === orig.kind) s += 20;
   const sec = new Set(orig.secondary || []);
@@ -211,7 +213,10 @@ export function generateDay({ targets, length = 6, gym }) {
   const usedKeys = new Set();
   const out = [];
 
+  const under = underTargetSet();
+  const deficit = (ex) => under.get(ex.primary[0]) || 0;
   const rank = (muscle) => (a, b) =>
+    (deficit(b) - deficit(a)) ||
     (loggedCount(b.id) - loggedCount(a.id)) ||
     ((b.primary[0] === muscle) - (a.primary[0] === muscle)) ||
     (pieces(a) - pieces(b));

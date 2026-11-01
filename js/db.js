@@ -16,6 +16,11 @@ export const DEFAULT_SETTINGS = {
   activeSplitId: null,
   activeGymId: null,    // which gym profile is active
   guideMe: false,       // guided workout mode (Get set / Next up screens)
+  askRpe: true,         // open the RPE picker after each completed set
+  effortDisplay: 'rpe', // 'rpe' | 'rir' (stored as RPE internally)
+  targets: null,        // { muscle: [min, max] } weekly hard-set targets; seeded from the Standard preset
+  targetPreset: 'standard',
+  weekMode: 'rolling',  // 'rolling' (7 days) | 'calendar' (Monday start)
   notifications: false, // user opted in to local notifications
 };
 

@@ -18,7 +18,7 @@ export function activeSplit() { return getSplit(db.settings.activeSplitId); }
 export function addSplitCopy(src, name = src.name) {
   const split = {
     id: uid('s_'), name,
-    days: src.days.map((d) => ({ id: uid('d_'), name: d.name, targets: d.targets ? [...d.targets] : [], exerciseIds: [...d.exerciseIds] })),
+    days: src.days.map((d) => ({ id: uid('d_'), name: d.name, targets: d.targets ? [...d.targets] : [], exerciseIds: [...d.exerciseIds], groups: d.groups ? d.groups.map((g) => [...g]) : [] })),
   };
   db.splits.push(split);
   db.save('splits');
@@ -148,12 +148,16 @@ export function openSplit(splitId) {
 /* ---------- Day editor ---------- */
 
 export function openDay(splitId, dayId) {
+  let selected = [];
   pushPanel({
     title: 'Day',
     render(body, p) {
       const split = getSplit(splitId);
       const day = split && split.days.find((d) => d.id === dayId);
       if (!day) { body.append(el('div.empty', {}, 'Day not found.')); return; }
+      if (!Array.isArray(day.groups)) day.groups = [];
+      // Drop groups whose members are no longer consecutive.
+      day.groups = day.groups.filter((g) => { const i = day.exerciseIds.indexOf(g[0]); return i >= 0 && g.every((id, k) => day.exerciseIds[i + k] === id); });
       p.setTitle(`${split.name} · ${day.name}`);
       p.setAction('Rename', async () => {
         const name = await promptSheet('', day.name, { title: 'Rename day' });
@@ -163,25 +167,64 @@ export function openDay(splitId, dayId) {
       const exs = day.exerciseIds.map(getExercise);
       const map = highlight(createMuscleMap(), combineMuscles(exs));
       const addEx = () => openLibrary({ title: 'Add exercise', pick: (id) => { day.exerciseIds.push(id); db.save('splits'); } });
+      const groupOf = (id) => day.groups.find((g) => g.includes(id));
+      const inGroup = (id) => !!groupOf(id);
+      const save = () => db.save('splits');
+      const consecutive = () => {
+        const idxs = selected.map((id) => day.exerciseIds.indexOf(id)).sort((a, b) => a - b);
+        return idxs.length >= 2 && idxs.length <= 3 && idxs.every((v, k) => k === 0 || v === idxs[k - 1] + 1) && !selected.some(inGroup);
+      };
 
-      const list = el('div.list');
-      if (!day.exerciseIds.length) list.append(emptyState({ icon: 'dumbbell', title: 'No exercises', text: 'Add exercises from the library to build this day.', action: { label: '+ Add exercise', onclick: addEx } }));
-      day.exerciseIds.forEach((id, i) => {
+      const row = (id, i, inside) => {
         const ex = exs[i];
-        list.append(el('div.list-item', {},
+        const sel = selected.includes(id);
+        return el('div.list-item', { class: inside ? 'ss-row' : '' },
+          !inside && el('button.sel', { class: sel ? 'on' : '', 'aria-label': sel ? 'Deselect' : 'Select', onclick: () => { selected = sel ? selected.filter((x) => x !== id) : [...selected, id]; p.refresh(); } }, sel ? '✓' : ''),
+          inside && el('span.ss-label', {}, inside),
           el('button.grow', { style: { textAlign: 'left', minHeight: '44px' }, onclick: () => ex && openExerciseSheet(ex.id, { onDetails: openExerciseDetail }) },
             el('div.title', {}, ex ? ex.name : 'Unknown exercise'),
             el('div.sub.ellipsis', {}, ex ? muscleNames(ex.primary) : id),
           ),
-          el('button.icon-btn', { onclick: () => { move(day.exerciseIds, i, -1); db.save('splits'); p.refresh(); }, disabled: i === 0, 'aria-label': 'Move up' }, '↑'),
-          el('button.icon-btn', { onclick: () => { move(day.exerciseIds, i, 1); db.save('splits'); p.refresh(); }, disabled: i === day.exerciseIds.length - 1, 'aria-label': 'Move down' }, '↓'),
-          el('button.icon-btn.danger', { onclick: () => { day.exerciseIds.splice(i, 1); db.save('splits'); p.refresh(); }, 'aria-label': 'Remove' }, '✕'),
-        ));
-      });
+          !inside && el('button.icon-btn', { onclick: () => { move(day.exerciseIds, i, -1); save(); p.refresh(); }, disabled: i === 0, 'aria-label': 'Move up' }, '↑'),
+          !inside && el('button.icon-btn', { onclick: () => { move(day.exerciseIds, i, 1); save(); p.refresh(); }, disabled: i === day.exerciseIds.length - 1, 'aria-label': 'Move down' }, '↓'),
+          el('button.icon-btn.danger', { onclick: () => { day.exerciseIds.splice(i, 1); day.groups = day.groups.map((g) => g.filter((x) => x !== id)).filter((g) => g.length >= 2); save(); p.refresh(); }, 'aria-label': 'Remove' }, '✕'),
+        );
+      };
+
+      const list = el('div.stack', { style: { gap: '8px' } });
+      if (!day.exerciseIds.length) list.append(el('div.list', {}, emptyState({ icon: 'dumbbell', title: 'No exercises', text: 'Add exercises from the library to build this day.', action: { label: '+ Add exercise', onclick: addEx } })));
+      let i = 0;
+      let letter = 0;
+      while (i < day.exerciseIds.length) {
+        const id = day.exerciseIds[i];
+        const g = groupOf(id);
+        if (g && g[0] === id) {
+          const L = String.fromCharCode(65 + letter++);
+          const tile = el('div.ss-tile', {},
+            el('div.ss-bracket'),
+            el('div.grow', {},
+              el('div.row.between.ss-head', {}, el('span.badge.fill', {}, `Superset ${L}`),
+                el('button.btn.sm', { onclick: () => { day.groups = day.groups.filter((x) => x !== g); save(); p.refresh(); } }, 'Ungroup')),
+              el('div.list', {}, g.map((gid, k) => row(gid, day.exerciseIds.indexOf(gid), `${L}${k + 1}`))),
+            ),
+          );
+          list.append(tile);
+          i += g.length;
+        } else {
+          list.append(el('div.list', {}, row(id, i, null)));
+          i += 1;
+        }
+      }
 
       body.append(
         el('div.card', {}, map, el('div.legend', {}, el('span.l-primary', {}, 'Primary'), el('span.l-secondary', {}, 'Secondary'))),
-        el('div.card-title', {}, 'Exercises'),
+        el('div.row.between', {},
+          el('div.card-title', { style: { margin: 0 } }, 'Exercises'),
+          selected.length ? el('button.btn.sm', { id: 'group-superset', disabled: !consecutive(), onclick: () => {
+            const ordered = [...selected].sort((a, b) => day.exerciseIds.indexOf(a) - day.exerciseIds.indexOf(b));
+            day.groups.push(ordered); selected = []; save(); toast('Grouped as superset'); p.refresh();
+          } }, consecutive() ? 'Group as superset' : 'Select 2–3 in a row') : el('span.muted.small', {}, 'Tick 2–3 in a row to superset'),
+        ),
         list,
         day.exerciseIds.length ? el('button.btn.block', { onclick: addEx }, '+ Add exercise') : null,
         el('button.btn.danger.block', { style: { marginTop: '8px' }, onclick: async () => {

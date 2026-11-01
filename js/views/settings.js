@@ -8,6 +8,8 @@ import { el, clear, toast, fmtWeight, kgToDisplay, displayToKg, unitLabel, weigh
 import { confirmSheet } from '../sheet.js';
 import { activeGym } from '../engine.js';
 import { openGyms, gymItemCount } from './gyms.js';
+import { openTargets } from './targets.js';
+import { targets } from '../volume.js';
 
 const THEME_COLORS = { light: '#F6F1E7', dark: '#122A20' };
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -37,7 +39,7 @@ function diagnostics() {
   const top = cs.paddingTop, bottom = cs.paddingBottom;
   probe.remove();
   const mode = isStandalone() ? 'standalone' : 'browser';
-  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v8`;
+  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v9`;
 }
 
 function isStandalone() {
@@ -47,6 +49,7 @@ function isStandalone() {
 export function render(view) {
   clear(view);
   const s = db.settings;
+  targets();
   const rerender = () => render(view);
 
   const restVal = el('span.val', {}, `${s.defaultRestSec}s`);
@@ -71,7 +74,18 @@ export function render(view) {
       el('div.setting-row', {}, el('div', {}, el('div.label', {}, 'Theme'), el('div.hint', {}, 'System follows your device')),
         seg([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], s.theme, (v) => { s.theme = v; db.save('settings'); applyTheme(); rerender(); })),
     ),
+    el('div.card', {},
+      el('div.card-title', {}, 'Logging'),
+      el('div.setting-row', {},
+        el('div', {}, el('div.label', {}, 'Ask RPE after each set'), el('div.hint', {}, 'Opens the effort picker when you tick a set')),
+        el('button.toggle', { id: 'ask-rpe', class: s.askRpe ? 'on' : '', 'aria-label': 'Ask RPE after each set', onclick: () => { s.askRpe = !s.askRpe; db.save('settings'); rerender(); } })),
+      el('div.setting-row', {}, el('div', {}, el('div.label', {}, 'Effort scale'), el('div.hint', {}, 'RPE 8 = RIR 2. Stored as RPE.')),
+        seg([['rpe', 'RPE'], ['rir', 'RIR']], s.effortDisplay || 'rpe', (v) => { s.effortDisplay = v; db.save('settings'); rerender(); })),
+    ),
     el('div.list', {},
+      el('button.list-item', { id: 'targets', onclick: openTargets },
+        el('div.grow', {}, el('div.title', {}, 'Weekly targets'), el('div.sub', {}, `${(s.targetPreset || 'custom')[0].toUpperCase()}${(s.targetPreset || 'custom').slice(1)} preset · ${s.weekMode === 'calendar' ? 'Mon to Sun' : 'rolling 7 days'}`)),
+        el('span.chev', {}, '›')),
       el('button.list-item', { id: 'my-gyms', onclick: openGyms },
         el('div.grow', {}, el('div.title', {}, 'My gyms'), el('div.sub', {}, `Active: ${activeGym().name} · ${gymItemCount(activeGym())} items`)),
         el('span.chev', {}, '›')),

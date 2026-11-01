@@ -485,3 +485,48 @@ p { margin: 0; }
 .wk-overlay .summary-stats { width: 100%; }
 .wk-overlay .summary-map .muscle-map { max-width: 200px; }
 .wk-overlay .btn.block { max-width: 360px; }
+
+/* ---------- RPE, targets, supersets, weekly volume ---------- */
+.check-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.check-col .check { width: 48px; height: 44px; }
+.rpe-pill { height: 20px; min-width: 40px; padding: 0 6px; border-radius: var(--r-pill); border: var(--line) solid var(--green-2); color: var(--green-2); font-size: 11px; font-weight: 800; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.rpe-pill.set { border-color: var(--green); background: var(--green); color: var(--cream); }
+.rpe-pill.ghost { border-style: dashed; }
+.set-row.done .rpe-pill.set { background: var(--red); border-color: var(--red); }
+.set-inner { padding: var(--s1) 0; }
+.rpe-row { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--s1); scrollbar-width: none; }
+.rpe-row::-webkit-scrollbar { display: none; }
+.rpe-row .chip { flex-shrink: 0; min-width: 44px; justify-content: center; }
+.target-line { font-size: var(--fs-body); font-weight: 800; margin-top: var(--s1); }
+.why-link { font: inherit; font-weight: 500; color: var(--green-2); text-decoration: underline; text-underline-offset: 3px; font-size: var(--fs-small); }
+.next-lines { display: flex; flex-direction: column; gap: 2px; padding: 0 var(--s1); }
+.next-line { font-size: var(--fs-small); font-weight: 800; }
+.nudge { color: var(--red); font-weight: 800; padding: 0 var(--s1); }
+.ss-label { display: inline-block; min-width: 26px; padding: 0 6px; height: 22px; line-height: 20px; border: var(--line) solid var(--green); border-radius: var(--r-pill); font-size: 11px; font-weight: 800; text-align: center; margin-right: 6px; vertical-align: middle; }
+.set-num.ss { font-size: 11px; }
+.name-btn .name.compact { font-size: var(--fs-heading); }
+.ss-tile { display: flex; gap: var(--s2); border: var(--line) solid var(--green); border-radius: var(--r-tile); padding: var(--s2) var(--s2) var(--s2) 0; }
+.ss-bracket { width: 10px; flex-shrink: 0; border: var(--line) solid var(--green); border-right: 0; border-radius: var(--r-tile) 0 0 var(--r-tile); margin: var(--s2) 0; margin-left: 6px; }
+.ss-head { padding: 0 var(--s1) var(--s2); }
+.ss-row { padding-left: var(--s3); }
+.sel { width: 28px; height: 28px; border-radius: 50%; border: var(--line) solid var(--green); color: var(--cream); font-weight: 800; font-size: 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.sel.on { background: var(--green); }
+.round { border: var(--line) solid var(--cream-2); border-radius: var(--r-tile); padding: var(--s2); display: flex; flex-direction: column; gap: var(--s2); }
+.round.current { border-color: var(--green); }
+.round-title { font-size: var(--fs-small); color: var(--green-2); font-weight: 800; }
+.round-label { font-weight: 800; }
+.dot.super { border-radius: 3px; }
+.demos-row { display: flex; gap: var(--s3); justify-content: center; }
+.vol-list { display: flex; flex-direction: column; gap: var(--s2); }
+.vol-row { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: var(--s2) 0; border-bottom: var(--line) solid var(--cream-2); }
+.vol-row:last-child { border-bottom: 0; }
+.vol-name { font-weight: 800; }
+.vol-num { font-weight: 800; }
+.vol-status { font-weight: 500; color: var(--green-2); margin-left: 6px; font-size: var(--fs-small); }
+.vol-row.under .vol-status { color: var(--red); }
+.vol-bar { position: relative; height: 14px; border: var(--line) solid var(--green); border-radius: var(--r-pill); overflow: visible; background: var(--cream); }
+.vol-bar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--red); border-radius: var(--r-pill); transition: width var(--dur-slow) var(--ease-out); }
+.vol-bar .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--green); transform: translateX(-1px); }
+.target-input { width: 56px; text-align: center; padding: 0; height: 40px; }
+
+.tile input.long { font-size: 22px; letter-spacing: -0.04em; }

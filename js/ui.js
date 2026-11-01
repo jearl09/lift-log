@@ -135,6 +135,27 @@ export function fmtWeight(kg, withUnit = true) {
   return withUnit ? `${s} ${unitLabel()}` : s;
 }
 
+/* ---------- Effort (RPE stored, RPE or RIR displayed) ---------- */
+
+export const RPE_VALUES = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+
+/** "RPE 8" or "RIR 2" depending on the display setting. */
+export function fmtEffort(rpe, { short = false } = {}) {
+  if (rpe == null) return '';
+  if (db.settings.effortDisplay === 'rir') {
+    const rir = Math.round((10 - rpe) * 10) / 10;
+    return short ? `${rir}` : `RIR ${rir}`;
+  }
+  return short ? `${rpe}` : `RPE ${rpe}`;
+}
+
+export function effortLabel() { return db.settings.effortDisplay === 'rir' ? 'RIR' : 'RPE'; }
+
+/** Display value for an RPE pill in the chosen mode (RIR counts down). */
+export function effortDisplayValue(rpe) {
+  return db.settings.effortDisplay === 'rir' ? Math.round((10 - rpe) * 10) / 10 : rpe;
+}
+
 /** Epley estimated 1RM, in kg. */
 export function est1RM(kg, reps) {
   if (kg == null || !reps) return null;

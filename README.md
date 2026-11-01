@@ -94,6 +94,31 @@ Notes for iOS:
 - Data is stored per-site in Safari's storage. If you reinstall the app or clear website
   data you lose it, so export a backup from Settings now and then.
 
+## RPE, progression, supersets and weekly targets
+
+- **RPE**: each set can carry an effort rating from 6 to 10 in half steps. By default the picker
+  opens after you tick a set (Settings → Logging). You can display RPE or RIR (reps in reserve,
+  RIR = 10 − RPE); RPE is what gets stored. Last session's RPE shows as ghost text.
+- **Progression** (per exercise, editable in the exercise form):
+  - *Linear*: if every working set hit the target reps and the hardest set was at or under the
+    RPE cap, add one increment. If reps fell short two sessions in a row, drop about 10%,
+    rounded to the increment. Otherwise repeat.
+  - *Double*: if every set reached the top of the rep range with RPE at or under the cap, add one
+    increment and reset reps to the bottom of the range. Otherwise keep the weight and aim for
+    one more rep on the weakest set.
+  - Defaults: increment 2.5 kg barbell, 1 kg dumbbells, 5 kg machines and cables, 0 bodyweight;
+    rep range 5–8 for compounds, 10–15 for isolations; RPE cap 8. Without RPE only the rep
+    rules apply. Weight never changes by more than one increment per session. The workout card
+    shows the target and pre-fills the sets; "Why?" explains the rule and the sessions used.
+- **Supersets**: in a day editor tick 2–3 consecutive exercises and tap "Group as superset". In
+  the workout they run round by round (A1, A2, rest, A1, A2 …) with one rest timer per round.
+  History and volume count each exercise's sets individually.
+- **Weekly targets** (Settings → Weekly targets): a hard set is 5+ reps or RPE 7+, not a warm-up;
+  it counts 1 for the primary muscle and 0.5 per secondary. Presets Minimal / Standard / High or
+  edit per muscle; rolling 7 days or Monday-to-Sunday weeks. The History tab shows each muscle
+  against its range (Under / In range / Over) and the generator and swap suggestions prefer
+  muscles that are under target.
+
 ## Exercise photos (import script)
 
 Photos and full instructions come from the public-domain
@@ -136,6 +161,9 @@ js/icons.js           inline SVG equipment icons
 js/figures.js         eight animated side-view movement figures (SMIL)
 js/coaching.js        setup / steps / cue / mistakes / tempo per exercise
 js/photos.js          user photos in IndexedDB (resize + store)
+js/progression.js     progression configs and next-session suggestions
+js/volume.js          weekly hard sets per muscle vs targets
+js/views/targets.js   Settings → Weekly targets
 js/generated/         exercise-db.js written by the import script
 js/views/exercise-sheet.js  exercise detail sheet + demo tile
 exercises/            dataset photos, 2 per exercise (CC0)

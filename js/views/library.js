@@ -5,7 +5,7 @@
 
 import { db } from '../db.js';
 import { MUSCLES, EQUIPMENT } from '../data.js';
-import { el, clear, pushPanel, popPanel, toast, fmtDate, fmtWeight, est1RM, emptyState } from '../ui.js';
+import { el, clear, pushPanel, popPanel, toast, fmtDate, fmtWeight, est1RM, emptyState, kgToDisplay, displayToKg, unitLabel } from '../ui.js';
 import { confirmSheet } from '../sheet.js';
 import { allExercises, getExercise, createExercise, updateExercise, deleteExercise, muscleNames, restFor, exerciseSessions, bestSet, topSetSeries } from '../exercises.js';
 import { createMuscleMap, highlight } from '../muscles.js';
@@ -14,6 +14,8 @@ import { equipFor, availability, activeGym, equipmentNames } from '../engine.js'
 import { equipmentIconEl } from '../icons.js';
 import { PATTERNS } from '../data.js';
 import { openExerciseSheet, demoArea } from './exercise-sheet.js';
+import { getProgression, suggest, fmtTarget } from '../progression.js';
+import { fmtEffort } from '../ui.js';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -99,6 +101,7 @@ export function openExerciseDetail(id) {
           ex.pattern && el('div.setting-row', {}, el('span.label', {}, 'Pattern'), el('span.muted', {}, `${PATTERNS[ex.pattern] || ex.pattern} · ${ex.kind || 'isolation'}`)),
         ),
         equipmentCard(ex),
+        progressionCard(ex),
       );
 
       const sessions = exerciseSessions(ex.id);
@@ -129,7 +132,7 @@ export function openExerciseDetail(id) {
           list.append(el('div.list-item', {},
             el('div.grow', {},
               el('div.title', {}, fmtDate(s.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }), hasPR && el('span.badge.pr', { style: { marginLeft: '8px' } }, 'PR')),
-              el('div.sub', {}, s.sets.map((x) => `${x.warmup ? 'w' : ''}${x.reps}×${x.weightKg != null ? fmtWeight(x.weightKg, false) : 'BW'}`).join('  ')),
+              el('div.sub', {}, s.sets.map((x) => `${x.warmup ? 'w' : ''}${x.reps}×${x.weightKg != null ? fmtWeight(x.weightKg, false) : 'BW'}${x.rpe != null ? ` @${x.rpe}` : ''}`).join('  ')),
             ),
             bs && bs.weightKg != null && bs.reps > 0 && el('span.small.muted', {}, `1RM ${fmtWeight(est1RM(bs.weightKg, bs.reps))}`),
           ));
@@ -154,6 +157,20 @@ export function openExerciseDetail(id) {
   });
 }
 
+function progressionCard(ex) {
+  const cfg = getProgression(ex);
+  const t = suggest(ex.id);
+  return el('div.card', {},
+    el('div.card-title', {}, 'Progression'),
+    el('div.setting-row', {}, el('span.label', {}, 'Scheme'), el('span.muted', {}, cfg.scheme === 'linear' ? 'Linear' : 'Double')),
+    el('div.setting-row', {}, el('span.label', {}, 'Reps'), el('span.muted', {}, `${cfg.repRange[0]}–${cfg.repRange[1]}`)),
+    el('div.setting-row', {}, el('span.label', {}, 'Increment'), el('span.muted', {}, cfg.incrementKg ? fmtWeight(cfg.incrementKg) : 'none (bodyweight)')),
+    el('div.setting-row', {}, el('span.label', {}, 'RPE cap'), el('span.muted', {}, String(cfg.rpeCap))),
+    t ? el('p.target-line', { style: { marginTop: '8px' } }, `Next: ${fmtTarget(t)}`) : el('p.muted.small', { style: { marginTop: '8px' } }, 'Log a session to get a target.'),
+    t && el('p.muted.small', {}, t.reason),
+  );
+}
+
 function equipmentCard(ex) {
   const gym = activeGym();
   const av = availability(ex, gym);
@@ -173,8 +190,8 @@ function equipmentCard(ex) {
 
 export function openExerciseForm(existing, afterCreate = null) {
   const draft = existing
-    ? { name: existing.name, equipment: existing.equipment, primary: [...existing.primary], secondary: [...existing.secondary], restSec: existing.restSec }
-    : { name: '', equipment: 'barbell', primary: [], secondary: [], restSec: null };
+    ? { name: existing.name, equipment: existing.equipment, primary: [...existing.primary], secondary: [...existing.secondary], restSec: existing.restSec, progression: { ...getProgression(existing) } }
+    : { name: '', equipment: 'barbell', primary: [], secondary: [], restSec: null, progression: { scheme: 'double', incrementKg: 2.5, repRange: [10, 15], rpeCap: 8 } };
 
   pushPanel({
     title: existing ? 'Edit exercise' : 'New exercise',
@@ -211,12 +228,24 @@ export function openExerciseForm(existing, afterCreate = null) {
           el('div.field', {}, el('label', {}, 'Rest time (seconds)'), restIn),
         ),
         el('div.card', {}, el('div.card-title', {}, 'Muscles · tap to cycle: primary → secondary → off'), grid),
+        el('div.card.stack', {},
+          el('div.card-title', {}, 'Progression'),
+          el('div.field', {}, el('label', {}, 'Scheme'),
+            el('div.seg', {}, [['linear', 'Linear'], ['double', 'Double']].map(([v, l]) => el('button', { class: draft.progression.scheme === v ? 'active' : '', onclick: (e) => { draft.progression.scheme = v; e.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.textContent === l)); } }, l)))),
+          el('div.field', {}, el('label', {}, `Increment (${unitLabel()})`), el('input.input', { type: 'text', inputmode: 'decimal', value: kgToDisplay(draft.progression.incrementKg), oninput: (e) => { const v = displayToKg(e.target.value.replace(',', '.')); draft.progression.incrementKg = v != null && v >= 0 ? v : 0; } })),
+          el('div.row', {},
+            el('div.field.grow', {}, el('label', {}, 'Reps min'), el('input.input', { type: 'text', inputmode: 'numeric', value: draft.progression.repRange[0], oninput: (e) => { const n = parseInt(e.target.value, 10); if (n > 0) draft.progression.repRange[0] = n; } })),
+            el('div.field.grow', {}, el('label', {}, 'Reps max'), el('input.input', { type: 'text', inputmode: 'numeric', value: draft.progression.repRange[1], oninput: (e) => { const n = parseInt(e.target.value, 10); if (n > 0) draft.progression.repRange[1] = n; } })),
+            el('div.field.grow', {}, el('label', {}, 'RPE cap'), el('input.input', { type: 'text', inputmode: 'decimal', value: draft.progression.rpeCap, oninput: (e) => { const n = parseFloat(e.target.value); if (n >= 5 && n <= 10) draft.progression.rpeCap = n; } })),
+          ),
+        ),
       );
       setTimeout(() => { if (!existing) nameIn.focus(); }, 50);
     },
   });
 
   function save() {
+    if (draft.progression) { const [a, b] = draft.progression.repRange; draft.progression.repRange = [Math.min(a, b), Math.max(a, b)]; }
     if (!draft.name.trim()) { toast('Enter a name'); return; }
     if (!draft.primary.length) { toast('Pick at least one primary muscle'); return; }
     if (existing) {
