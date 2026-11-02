@@ -58,9 +58,12 @@ function registerSW() {
     });
   }).catch((err) => console.warn('SW registration failed:', err));
 
+  // Reload only when an update takes over. On the very first install the
+  // controller goes from none to the new worker; the page is already current.
+  const hadController = !!navigator.serviceWorker.controller;
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
+    if (reloading || !hadController) return;
     reloading = true;
     location.reload();
   });

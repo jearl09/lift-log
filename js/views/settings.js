@@ -9,6 +9,8 @@ import { confirmSheet } from '../sheet.js';
 import { activeGym } from '../engine.js';
 import { openGyms, gymItemCount } from './gyms.js';
 import { openTargets } from './targets.js';
+import { openStyle } from './style.js';
+import { describeStyle } from '../style.js';
 import { targets } from '../volume.js';
 
 const THEME_COLORS = { light: '#F6F1E7', dark: '#122A20' };
@@ -39,7 +41,7 @@ function diagnostics() {
   const top = cs.paddingTop, bottom = cs.paddingBottom;
   probe.remove();
   const mode = isStandalone() ? 'standalone' : 'browser';
-  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v9`;
+  return `${mode} · viewport ${window.innerWidth}×${window.innerHeight} · screen ${screen.width}×${screen.height} · safe top ${top} · safe bottom ${bottom} · cache v10`;
 }
 
 function isStandalone() {
@@ -83,6 +85,9 @@ export function render(view) {
         seg([['rpe', 'RPE'], ['rir', 'RIR']], s.effortDisplay || 'rpe', (v) => { s.effortDisplay = v; db.save('settings'); rerender(); })),
     ),
     el('div.list', {},
+      el('button.list-item', { id: 'training-style', onclick: openStyle },
+        el('div.grow', {}, el('div.title', {}, 'Training style'), el('div.sub', {}, describeStyle())),
+        el('span.chev', {}, '›')),
       el('button.list-item', { id: 'targets', onclick: openTargets },
         el('div.grow', {}, el('div.title', {}, 'Weekly targets'), el('div.sub', {}, `${(s.targetPreset || 'custom')[0].toUpperCase()}${(s.targetPreset || 'custom').slice(1)} preset · ${s.weekMode === 'calendar' ? 'Mon to Sun' : 'rolling 7 days'}`)),
         el('span.chev', {}, '›')),

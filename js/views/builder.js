@@ -9,14 +9,16 @@ import { MUSCLES, MUSCLE_NAME } from '../data.js';
 import { el, clear, uid, pushPanel, popPanel, toast, emptyState } from '../ui.js';
 import { openSheet, promptSheet, closeSheet } from '../sheet.js';
 import { getExercise, muscleNames } from '../exercises.js';
-import { activeGym, generateDay, substitutes, usedEquipment, equipmentNames, TARGET_PRESETS, LENGTHS } from '../engine.js';
+import { activeGym, generateDay, substitutes, usedEquipment, equipmentNames, TARGET_PRESETS, LENGTHS, lengthCount } from '../engine.js';
+import { style, describeStyle, SETUP_LABEL } from '../style.js';
+import { openStyle } from './style.js';
 import { equipmentIconEl } from '../icons.js';
 import { startSession } from './workout.js';
 
 export function openBuilder() {
   let targetId = 'push';
   let custom = [];
-  let lengthId = 'standard';
+  let lengthId = 'style';
   let result = null;
 
   const targets = () => (targetId === 'custom' ? custom : TARGET_PRESETS.find((t) => t.id === targetId).targets);
@@ -37,6 +39,7 @@ export function openBuilder() {
             el('div.grow', {},
               el('div.title', {}, ex.name),
               el('div.sub', {}, `${item.sets} × ${item.repsLabel} · ${muscleNames(ex.primary)}`),
+              style().quickSetup && item.setup != null && el('div.sub', {}, SETUP_LABEL[item.setup]),
               el('div.row', { style: { marginTop: '4px', gap: '6px' } }, el('span.eq-icons', {}, usedEquipment(ex, gym).map((id) => equipmentIconEl(id, 18))), el('span.why', {}, item.reason)),
             ),
             el('button.btn.sm', { onclick: () => swap(i) }, 'Swap'),
@@ -78,12 +81,12 @@ export function openBuilder() {
 
       const lengthSeg = el('div.seg', {}, LENGTHS.map((l) => el('button', { class: l.id === lengthId ? 'active' : '', onclick: () => {
         lengthId = l.id; lengthSeg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.textContent.startsWith(l.name)));
-      } }, `${l.name} · ${l.count}`)));
+      } }, `${l.name} · ${lengthCount(l.id)}`)));
 
       const actions = el('div.btn-row', { class: 'hidden' });
       const generate = () => {
         if (!targets().length) { toast('Pick at least one muscle'); return; }
-        result = generateDay({ targets: targets(), length: LENGTHS.find((l) => l.id === lengthId).count, gym });
+        result = generateDay({ targets: targets(), length: lengthCount(lengthId), gym });
         drawResult();
         actions.classList.remove('hidden');
         genBtn.textContent = 'Regenerate'; genBtn.classList.remove('primary');
@@ -133,6 +136,7 @@ export function openBuilder() {
 
       body.append(
         el('p.muted.small', {}, `Uses only what ${gym.name} has. One compound per muscle first, then isolations to fill.`),
+        el('button.list-item', { id: 'builder-style', onclick: openStyle }, el('div.grow', {}, el('div.title', {}, 'Your style'), el('div.sub', {}, describeStyle())), el('span.chev', {}, '›')),
         el('div.card-title', {}, 'Target'), targetChips, customChips,
         el('div.card-title', {}, 'Length'), lengthSeg,
         genBtn,

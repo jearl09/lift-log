@@ -10,7 +10,8 @@
    ========================================================================== */
 
 import { db } from './db.js';
-import { EQUIPMENT_TYPES, EQUIPMENT_BY_ID, ALL_EQUIPMENT_IDS, MUSCLES, MUSCLE_NAME, DAY_TARGETS, PATTERNS } from './data.js';
+import { EQUIPMENT_TYPES, EQUIPMENT_BY_ID, ALL_EQUIPMENT_IDS, MUSCLES, MUSCLE_NAME, DAY_TARGETS, PATTERNS, setupOf } from './data.js';
+import { style, repsLabelFor, targetRepsFor, exerciseCountFor } from './style.js';
 import { allExercises, getExercise, exerciseSessions } from './exercises.js';
 import { uid } from './ui.js';
 import { underTargetSet } from './volume.js';
@@ -121,6 +122,7 @@ const loggedCount = (id) => exerciseSessions(id).length;
 export function scoreSubstitute(orig, cand) {
   let s = 0;
   if (underTargetSet().has(cand.primary[0])) s += 15;
+  if (style().quickSetup) s += (2 - setupOf(cand)) * 12;
   if (orig.pattern && cand.pattern === orig.pattern) s += 100;
   if (cand.kind === orig.kind) s += 20;
   const sec = new Set(orig.secondary || []);
@@ -132,13 +134,13 @@ export function scoreSubstitute(orig, cand) {
 }
 
 /** Ranked substitutes for an exercise using only the gym's equipment. */
-export function substitutes(exerciseId, gym, { exclude = [], excludeEquipment = [], n = 3 } = {}) {
+export function substitutes(exerciseId, gym, { exclude = [], excludeEquipment = [], n = 3, maxSetup = 2 } = {}) {
   const orig = getExercise(exerciseId);
   if (!orig) return [];
   const main = orig.primary[0];
   const skip = new Set([exerciseId, ...exclude]);
   return allExercises()
-    .filter((ex) => !skip.has(ex.id) && ex.primary.includes(main) && availability(ex, gym, excludeEquipment).ok)
+    .filter((ex) => !skip.has(ex.id) && ex.primary.includes(main) && setupOf(ex) <= maxSetup && availability(ex, gym, excludeEquipment).ok)
     .map((ex) => ({ ex, score: scoreSubstitute(orig, ex) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
@@ -150,14 +152,16 @@ function whySubstitute(orig, cand) {
   if (orig.pattern && cand.pattern === orig.pattern) bits.push(`same ${PATTERNS[cand.pattern] ? PATTERNS[cand.pattern].toLowerCase() : 'pattern'}`);
   else bits.push(`also hits ${MUSCLE_NAME[orig.primary[0]].toLowerCase()}`);
   if (loggedCount(cand.id) > 0) bits.push('you have logged it before');
+  if (style().quickSetup && setupOf(cand) === 0) bits.push('quick to set up');
   return bits.join(', ');
 }
 
 /* ---------- Resolve a split day against a gym ---------- */
 
 /**
- * Returns [{ exerciseId, status: 'ok'|'swapped'|'unavailable', originalId, reason, missing[] }]
- * Per-gym overrides win; then the engine's best substitute; otherwise keep it, greyed.
+ * Returns [{ exerciseId, status: 'ok'|'swapped'|'unavailable', originalId, reason, missing[], style? }]
+ * Per-gym overrides win; then a quick-setup swap if the training style asks
+ * for one; then the engine's best substitute; otherwise keep it, greyed.
  */
 export function resolveDay(day, gym) {
   const out = [];
@@ -175,6 +179,15 @@ export function resolveDay(day, gym) {
       }
     }
     const av = availability(ex, gym);
+    if (av.ok && style().quickSetup && setupOf(ex) >= 2) {
+      // Your style avoids slow-to-set-up lifts: swap for a quicker one if there is one.
+      const [quick] = substitutes(id, gym, { exclude: [...taken], n: 1, maxSetup: 1 });
+      if (quick) {
+        out.push({ exerciseId: quick.id, status: 'swapped', originalId: id, reason: `${ex.name} is slow to set up and your style prefers quick setups · ${quick.why}`, missing: [], style: true });
+        taken.add(quick.id);
+        continue;
+      }
+    }
     if (av.ok) { out.push({ exerciseId: id, status: 'ok', reason: '', missing: [] }); continue; }
     const missingText = equipmentNames(av.missing).toLowerCase();
     const [sub] = substitutes(id, gym, { exclude: [...taken], n: 1 });
@@ -199,15 +212,26 @@ export const TARGET_PRESETS = [
   { id: 'full', name: 'Full body', targets: DAY_TARGETS.full },
 ];
 
-export const LENGTHS = [{ id: 'short', name: 'Short', count: 4 }, { id: 'standard', name: 'Standard', count: 6 }, { id: 'long', name: 'Long', count: 8 }];
+export const LENGTHS = [{ id: 'style', name: 'My style', count: null }, { id: 'short', name: 'Short', count: 4 }, { id: 'standard', name: 'Standard', count: 6 }, { id: 'long', name: 'Long', count: 8 }];
+/** Exercise count for a length id ('style' fits the training style's session length). */
+export function lengthCount(id) {
+  const l = LENGTHS.find((x) => x.id === id) || LENGTHS[0];
+  return l.count || exerciseCountFor();
+}
 
 /**
  * Build a day: one compound per target first (if any), then isolations to fill.
- * Never two exercises with the same primary AND pattern. Prefers logged exercises.
- * Returns [{ exerciseId, kind, sets, repsLabel, targetReps, reason }]
+ * Never two exercises with the same primary AND pattern. Prefers under-target
+ * muscles, then (quick-setup style) quicker exercises, then logged ones.
+ * Sets and reps come from the training style.
+ * Returns [{ exerciseId, kind, sets, repsLabel, targetReps, setup, reason }]
  */
 export function generateDay({ targets, length = 6, gym }) {
-  const avail = allExercises().filter((ex) => availability(ex, gym).ok);
+  const st = style();
+  const all = allExercises().filter((ex) => availability(ex, gym).ok);
+  // Quick-setup style: leave out plate-loaded lifts unless a muscle has nothing else.
+  const quick = st.quickSetup ? all.filter((ex) => setupOf(ex) < 2) : all;
+  const avail = st.quickSetup ? all.filter((ex) => setupOf(ex) < 2 || !quick.some((q) => q.primary.includes(ex.primary[0]))) : all;
   const key = (ex) => `${ex.primary[0]}|${ex.pattern}`;
   const usedIds = new Set();
   const usedKeys = new Set();
@@ -217,6 +241,7 @@ export function generateDay({ targets, length = 6, gym }) {
   const deficit = (ex) => under.get(ex.primary[0]) || 0;
   const rank = (muscle) => (a, b) =>
     (deficit(b) - deficit(a)) ||
+    (st.quickSetup ? setupOf(a) - setupOf(b) : 0) ||
     (loggedCount(b.id) - loggedCount(a.id)) ||
     ((b.primary[0] === muscle) - (a.primary[0] === muscle)) ||
     (pieces(a) - pieces(b));
@@ -228,13 +253,13 @@ export function generateDay({ targets, length = 6, gym }) {
   };
   const add = (ex, muscle, why) => {
     usedIds.add(ex.id); usedKeys.add(key(ex));
-    const first = ex.kind === 'compound' && !out.some((e) => e.kind === 'compound');
     out.push({
       exerciseId: ex.id, kind: ex.kind,
-      sets: ex.kind === 'compound' ? (first ? 4 : 3) : 3,
-      repsLabel: ex.kind === 'compound' ? '5–8' : '10–15',
-      targetReps: ex.kind === 'compound' ? 6 : 12,
-      reason: `${why} for ${MUSCLE_NAME[muscle].toLowerCase()}${loggedCount(ex.id) ? ' · you have logged it before' : ''}`,
+      sets: st.sets,
+      repsLabel: repsLabelFor(ex, st),
+      targetReps: targetRepsFor(ex, st),
+      setup: setupOf(ex),
+      reason: `${why} for ${MUSCLE_NAME[muscle].toLowerCase()}${loggedCount(ex.id) ? ' · you have logged it before' : ''}${st.quickSetup && setupOf(ex) === 0 ? ' · quick to set up' : ''}`,
     });
   };
 

@@ -58,6 +58,7 @@ export function createExercise(fields) {
     equip: fields.equip && fields.equip.length ? fields.equip : undefined,
     pattern: fields.pattern || undefined,
     kind: fields.kind || 'isolation',
+    setup: fields.setup != null ? fields.setup : undefined,
   };
   db.exercises.push(ex);
   db.save('exercises');

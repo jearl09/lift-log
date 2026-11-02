@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS = {
   targetPreset: 'standard',
   weekMode: 'rolling',  // 'rolling' (7 days) | 'calendar' (Monday start)
   notifications: false, // user opted in to local notifications
+  style: null,          // training style { preset, sets, scheme, reps, window, minutes, quickSetup }; seeded from Balanced
 };
 
 function read(key, fallback) {

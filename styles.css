@@ -531,3 +531,11 @@ p { margin: 0; }
 
 .tile input.mid { font-size: 24px; letter-spacing: -0.04em; }
 .tile input.long { font-size: 18px; letter-spacing: -0.04em; }
+
+/* ---- Training style ---- */
+.target-line.style-line { color: var(--green-2); }
+[data-theme="dark"] .target-line.style-line { color: var(--cream-2); }
+.setting-row.stacked { flex-direction: column; align-items: stretch; }
+.setting-row.stacked .seg { width: 100%; }
+.list-item.selected { border-color: var(--green); }
+.list-item.selected .chev { color: var(--green); font-weight: 800; }

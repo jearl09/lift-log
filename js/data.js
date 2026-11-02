@@ -177,8 +177,26 @@ export const BUILTIN_EXERCISES = [
   E('russian-twist',          'Russian Twist',               'bodyweight', ['obliques'], ['abs'], 45, [['bodyweight']], 'rotation', 'isolation'),
 ];
 
+/* Setup time: 0 = grab and go (pin stacks, dumbbells, cables, bodyweight),
+   1 = a bench to adjust or a light bar to load, 2 = plate loading / racks.
+   The "quick setup" training style avoids level 2 and prefers level 0. */
+const SLOW_SETUP = new Set(['deadlift', 'sumo-deadlift', 'rack-pull', 'squat', 'front-squat', 'smith-squat', 'hack-squat', 'leg-press', 'romanian-deadlift', 'hip-thrust',
+  'bench-press', 'incline-bench-press', 'smith-bench-press', 'close-grip-bench-press', 'overhead-press', 'barbell-row', 't-bar-row']);
+const SOME_SETUP = new Set(['dumbbell-bench-press', 'incline-dumbbell-press', 'skull-crusher', 'barbell-curl', 'preacher-curl', 'upright-row', 'shrug', 'bulgarian-split-squat',
+  'seated-calf-raise', 'reverse-curl', 'wrist-curl', 'incline-dumbbell-curl', 'chest-supported-row', 'dumbbell-fly', 'inverted-row', 'kettlebell-swing']);
+for (const ex of BUILTIN_EXERCISES) ex.setup = SLOW_SETUP.has(ex.id) ? 2 : SOME_SETUP.has(ex.id) ? 1 : 0;
+
+/** Setup level for any exercise (customs fall back to their equipment category). */
+export function setupOf(ex) {
+  if (!ex) return 0;
+  if (ex.setup != null) return Math.min(2, Math.max(0, Number(ex.setup) || 0));
+  return ex.equipment === 'barbell' ? 2 : ex.equipment === 'machine' ? 1 : 0;
+}
+
 /* Split presets. Each day lists target muscles plus a preferred exercise
-   order; the engine falls back to targets when equipment is missing. */
+   order; the engine falls back to targets when equipment is missing. Two- and
+   three-day splits carry A/B variants so the second time a day comes round
+   in the week it trains the same muscles with different exercises. */
 const D = (id, name, targets, exerciseIds) => ({ id, name, targets, exerciseIds });
 
 export const DAY_TARGETS = {
@@ -194,16 +212,21 @@ export const PRESET_SPLITS = [
   {
     id: 'preset-ppl', name: 'Push / Pull / Legs',
     days: [
-      D('push', 'Push', DAY_TARGETS.push, ['bench-press', 'overhead-press', 'incline-dumbbell-press', 'lateral-raise', 'triceps-pushdown', 'overhead-triceps-extension']),
-      D('pull', 'Pull', [...DAY_TARGETS.pull, 'lower-back'], ['deadlift', 'pull-up', 'barbell-row', 'face-pull', 'barbell-curl', 'hammer-curl']),
-      D('legs', 'Legs', [...DAY_TARGETS.legs, 'abs'], ['squat', 'romanian-deadlift', 'leg-press', 'leg-curl', 'standing-calf-raise', 'hanging-leg-raise']),
+      D('push-a', 'Push A', DAY_TARGETS.push, ['bench-press', 'overhead-press', 'incline-dumbbell-press', 'lateral-raise', 'triceps-pushdown', 'overhead-triceps-extension']),
+      D('pull-a', 'Pull A', [...DAY_TARGETS.pull, 'lower-back'], ['deadlift', 'pull-up', 'barbell-row', 'face-pull', 'barbell-curl', 'hammer-curl']),
+      D('legs-a', 'Legs A', [...DAY_TARGETS.legs, 'abs'], ['squat', 'romanian-deadlift', 'leg-press', 'leg-curl', 'standing-calf-raise', 'hanging-leg-raise']),
+      D('push-b', 'Push B', DAY_TARGETS.push, ['incline-bench-press', 'dumbbell-shoulder-press', 'dip', 'cable-fly', 'cable-lateral-raise', 'skull-crusher']),
+      D('pull-b', 'Pull B', DAY_TARGETS.pull, ['lat-pulldown', 'seated-cable-row', 'dumbbell-row', 'rear-delt-fly', 'incline-dumbbell-curl', 'cable-curl']),
+      D('legs-b', 'Legs B', [...DAY_TARGETS.legs, 'abs'], ['leg-press', 'hip-thrust', 'bulgarian-split-squat', 'leg-extension', 'seated-calf-raise', 'cable-crunch']),
     ],
   },
   {
     id: 'preset-ul', name: 'Upper / Lower',
     days: [
-      D('upper', 'Upper', DAY_TARGETS.upper, ['bench-press', 'barbell-row', 'overhead-press', 'lat-pulldown', 'dumbbell-curl', 'triceps-pushdown']),
-      D('lower', 'Lower', DAY_TARGETS.lower, ['squat', 'romanian-deadlift', 'leg-press', 'leg-curl', 'standing-calf-raise', 'plank']),
+      D('upper-a', 'Upper A', DAY_TARGETS.upper, ['bench-press', 'barbell-row', 'overhead-press', 'lat-pulldown', 'dumbbell-curl', 'triceps-pushdown']),
+      D('lower-a', 'Lower A', DAY_TARGETS.lower, ['squat', 'romanian-deadlift', 'leg-press', 'leg-curl', 'standing-calf-raise', 'plank']),
+      D('upper-b', 'Upper B', [...DAY_TARGETS.upper, 'rear-delts'], ['incline-dumbbell-press', 'seated-cable-row', 'dumbbell-shoulder-press', 'pull-up', 'face-pull', 'hammer-curl', 'skull-crusher']),
+      D('lower-b', 'Lower B', DAY_TARGETS.lower, ['leg-press', 'hip-thrust', 'bulgarian-split-squat', 'leg-extension', 'seated-calf-raise', 'hanging-leg-raise']),
     ],
   },
   {
@@ -217,8 +240,10 @@ export const PRESET_SPLITS = [
   {
     id: 'preset-ap', name: 'Anterior / Posterior',
     days: [
-      D('ant', 'Anterior', ['quads', 'chest', 'front-delts', 'side-delts', 'abs'], ['squat', 'bench-press', 'overhead-press', 'leg-extension', 'lateral-raise', 'cable-crunch']),
-      D('post', 'Posterior', ['hamstrings', 'glutes', 'lats', 'upper-back', 'rear-delts', 'lower-back'], ['deadlift', 'barbell-row', 'pull-up', 'leg-curl', 'face-pull', 'hip-thrust']),
+      D('ant-a', 'Anterior A', ['quads', 'chest', 'front-delts', 'side-delts', 'biceps', 'abs'], ['squat', 'bench-press', 'overhead-press', 'leg-extension', 'lateral-raise', 'barbell-curl', 'cable-crunch']),
+      D('post-a', 'Posterior A', ['hamstrings', 'glutes', 'lats', 'upper-back', 'rear-delts', 'triceps', 'lower-back'], ['deadlift', 'barbell-row', 'pull-up', 'leg-curl', 'face-pull', 'hip-thrust', 'triceps-pushdown']),
+      D('ant-b', 'Anterior B', ['quads', 'chest', 'front-delts', 'side-delts', 'biceps', 'abs'], ['leg-press', 'incline-dumbbell-press', 'dumbbell-shoulder-press', 'bulgarian-split-squat', 'cable-lateral-raise', 'incline-dumbbell-curl', 'hanging-leg-raise']),
+      D('post-b', 'Posterior B', ['hamstrings', 'glutes', 'lats', 'upper-back', 'rear-delts', 'triceps', 'calves'], ['romanian-deadlift', 'lat-pulldown', 'chest-supported-row', 'kettlebell-swing', 'rear-delt-fly', 'skull-crusher', 'standing-calf-raise']),
     ],
   },
   {

@@ -15,6 +15,8 @@ import { equipmentIconEl } from '../icons.js';
 import { PATTERNS } from '../data.js';
 import { openExerciseSheet, demoArea } from './exercise-sheet.js';
 import { getProgression, suggest, fmtTarget } from '../progression.js';
+import { setupOf } from '../data.js';
+import { SETUP_LABEL, SETUP_HINT } from '../style.js';
 import { fmtEffort } from '../ui.js';
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -162,7 +164,7 @@ function progressionCard(ex) {
   const t = suggest(ex.id);
   return el('div.card', {},
     el('div.card-title', {}, 'Progression'),
-    el('div.setting-row', {}, el('span.label', {}, 'Scheme'), el('span.muted', {}, cfg.scheme === 'linear' ? 'Linear' : 'Double')),
+    el('div.setting-row', {}, el('span.label', {}, 'Scheme'), el('span.muted', {}, cfg.scheme === 'linear' ? 'Linear' : cfg.scheme === 'failure' ? 'To failure' : 'Double')),
     el('div.setting-row', {}, el('span.label', {}, 'Reps'), el('span.muted', {}, `${cfg.repRange[0]}–${cfg.repRange[1]}`)),
     el('div.setting-row', {}, el('span.label', {}, 'Increment'), el('span.muted', {}, cfg.incrementKg ? fmtWeight(cfg.incrementKg) : 'none (bodyweight)')),
     el('div.setting-row', {}, el('span.label', {}, 'RPE cap'), el('span.muted', {}, String(cfg.rpeCap))),
@@ -183,6 +185,7 @@ function equipmentCard(ex) {
   });
   card.append(el('p.small', { style: { marginTop: '6px', fontWeight: 800, color: av.ok ? 'var(--green)' : 'var(--red)' } },
     av.ok ? `Available at ${gym.name}` : `Not available at ${gym.name} · missing ${equipmentNames(av.missing).toLowerCase()}`));
+  card.append(el('p.small.muted', { style: { marginTop: '4px' } }, `${SETUP_LABEL[setupOf(ex)]} · ${SETUP_HINT[setupOf(ex)].toLowerCase()}`));
   return card;
 }
 
@@ -190,8 +193,8 @@ function equipmentCard(ex) {
 
 export function openExerciseForm(existing, afterCreate = null) {
   const draft = existing
-    ? { name: existing.name, equipment: existing.equipment, primary: [...existing.primary], secondary: [...existing.secondary], restSec: existing.restSec, progression: { ...getProgression(existing) } }
-    : { name: '', equipment: 'barbell', primary: [], secondary: [], restSec: null, progression: { scheme: 'double', incrementKg: 2.5, repRange: [10, 15], rpeCap: 8 } };
+    ? { name: existing.name, equipment: existing.equipment, primary: [...existing.primary], secondary: [...existing.secondary], restSec: existing.restSec, setup: setupOf(existing), progression: { ...getProgression(existing) } }
+    : { name: '', equipment: 'barbell', primary: [], secondary: [], restSec: null, setup: 0, progression: { scheme: 'double', incrementKg: 2.5, repRange: [10, 15], rpeCap: 8 } };
 
   pushPanel({
     title: existing ? 'Edit exercise' : 'New exercise',
@@ -226,12 +229,14 @@ export function openExerciseForm(existing, afterCreate = null) {
           el('div.field', {}, el('label', {}, 'Name'), nameIn),
           el('div.field', {}, el('label', {}, 'Equipment'), eqSel),
           el('div.field', {}, el('label', {}, 'Rest time (seconds)'), restIn),
+          el('div.field', {}, el('label', {}, 'Setup time'),
+            el('div.seg', {}, SETUP_LABEL.map((l, v) => el('button', { class: draft.setup === v ? 'active' : '', onclick: (e) => { draft.setup = v; e.currentTarget.parentElement.querySelectorAll('button').forEach((b, k) => b.classList.toggle('active', k === v)); } }, l.replace(' setup', ''))))),
         ),
         el('div.card', {}, el('div.card-title', {}, 'Muscles · tap to cycle: primary → secondary → off'), grid),
         el('div.card.stack', {},
           el('div.card-title', {}, 'Progression'),
           el('div.field', {}, el('label', {}, 'Scheme'),
-            el('div.seg', {}, [['linear', 'Linear'], ['double', 'Double']].map(([v, l]) => el('button', { class: draft.progression.scheme === v ? 'active' : '', onclick: (e) => { draft.progression.scheme = v; e.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.textContent === l)); } }, l)))),
+            el('div.seg', {}, [['linear', 'Linear'], ['double', 'Double'], ['failure', 'To failure']].map(([v, l]) => el('button', { class: draft.progression.scheme === v ? 'active' : '', onclick: (e) => { draft.progression.scheme = v; e.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.textContent === l)); } }, l)))),
           el('div.field', {}, el('label', {}, `Increment (${unitLabel()})`), el('input.input', { type: 'text', inputmode: 'decimal', value: kgToDisplay(draft.progression.incrementKg), oninput: (e) => { const v = displayToKg(e.target.value.replace(',', '.')); draft.progression.incrementKg = v != null && v >= 0 ? v : 0; } })),
           el('div.row', {},
             el('div.field.grow', {}, el('label', {}, 'Reps min'), el('input.input', { type: 'text', inputmode: 'numeric', value: draft.progression.repRange[0], oninput: (e) => { const n = parseInt(e.target.value, 10); if (n > 0) draft.progression.repRange[0] = n; } })),

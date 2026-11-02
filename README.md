@@ -6,8 +6,8 @@ All data lives in your browser's localStorage; export a JSON backup from Setting
 
 ## Features
 
-- **Splits**: Push/Pull/Legs, Upper/Lower, Full Body, Anterior/Posterior and Bro Split presets.
-  Duplicate and edit them or build your own. One split is "active" and the Today tab
+- **Splits**: Push/Pull/Legs, Upper/Lower, Full Body, Anterior/Posterior and Bro Split presets,
+  with A/B variants of each day. Duplicate and edit them or build your own. One split is "active" and the Today tab
   suggests the next day based on what you last logged.
 - **Exercise library**: ~65 built-in movements with equipment, primary/secondary muscles and
   rest time. Add, edit and delete custom exercises.
@@ -43,6 +43,8 @@ All data lives in your browser's localStorage; export a JSON backup from Setting
 - **Design**: the "Enamel" system, a boxing-gym enamel-sign look in cream and racing green with one
   signal red, heavy 2px outlines, pills and tiles, and self-hosted Bricolage Grotesque (500/800).
   All tokens live in `:root` in `styles.css`; dark mode swaps the cream and green tokens.
+- **Training style**: Fast and effective / Balanced / Strength presets (sets, to-failure or fixed
+  reps, session length, quick-setup preference) that drive set pre-fill, the day builder and swaps.
 - **Polish**: centred phone frame on desktop, spring motion system with reduced-motion support,
   bottom sheets instead of native dialogs, 12-week contribution calendar.
 
@@ -119,6 +121,29 @@ Notes for iOS:
   against its range (Under / In range / Over) and the generator and swap suggestions prefer
   muscles that are under target.
 
+## Training style, A/B days and setup time
+
+- **Training style** (Settings → Training style) is how you like to train. Three presets:
+  *Fast and effective* (2 sets to failure in an 8–15 rep window, about 35 min, quick setups only,
+  60 s rest), *Balanced* (3 sets, each exercise's own rep range, 55 min, 90 s rest) and *Strength*
+  (4 × 5, 75 min, 150 s rest). Every field is editable; changing one makes the style Custom.
+  The style decides the set count on every workout card, the reps scheme for exercises without
+  their own progression settings, how many exercises "Build a day" fits into the session length,
+  and whether swap suggestions prefer quick setups.
+- **To failure** (style scheme): sets pre-fill with the weight only and "max" as the reps hint.
+  Once every set clears the top of the window with RPE at or under the cap, add one increment.
+  If the weakest set falls under the bottom of the window, drop about 10%. Otherwise repeat.
+- **Setup time**: every exercise has a level: quick (pin stacks, dumbbells, cables, bodyweight),
+  some (a bench to adjust or a light bar), slow (plate loading, racks). It shows in the exercise
+  detail and is editable in the form. With "Prefer quick setups" on, split days swap slow lifts
+  for a quick one with the same pattern (the Today list shows them as Swapped and says why), the
+  builder leaves slow lifts out unless a muscle has nothing else, and swaps rank quicker first.
+- **A/B days**: Push/Pull/Legs, Upper/Lower and Anterior/Posterior presets now have an A and a B
+  variant of each day (same muscles, different exercises). Days rotate in order, so a 4-day week
+  on Anterior/Posterior runs Anterior A, Posterior A, Anterior B, Posterior B. Anterior days
+  include biceps and Posterior days include triceps. Splits you added earlier are unchanged;
+  add the preset again to get the new days.
+
 ## Exercise photos (import script)
 
 Photos and full instructions come from the public-domain
@@ -162,8 +187,10 @@ js/figures.js         eight animated side-view movement figures (SMIL)
 js/coaching.js        setup / steps / cue / mistakes / tempo per exercise
 js/photos.js          user photos in IndexedDB (resize + store)
 js/progression.js     progression configs and next-session suggestions
+js/style.js           training style presets, setup-time labels, session-length maths
 js/volume.js          weekly hard sets per muscle vs targets
 js/views/targets.js   Settings → Weekly targets
+js/views/style.js     Settings → Training style panel
 js/generated/         exercise-db.js written by the import script
 js/views/exercise-sheet.js  exercise detail sheet + demo tile
 exercises/            dataset photos, 2 per exercise (CC0)

@@ -20,6 +20,7 @@ import { openPlateCalc, warmupSets } from '../plates.js';
 import { createMuscleMap, highlight, combineMuscles } from '../muscles.js';
 import { coachingFor } from '../coaching.js';
 import { suggest, fmtTarget, getProgression } from '../progression.js';
+import { style, schemeLabel, targetRepsFor } from '../style.js';
 import { openLibrary } from './library.js';
 import { demoTile, openExerciseSheet } from './exercise-sheet.js';
 
@@ -39,18 +40,29 @@ let overlayNode = null;
 
 /* ---------- Sets / targets ---------- */
 
-function initialSets(exerciseId, suggested) {
-  const n = lastSets(exerciseId).length || suggested || 3;
-  return Array.from({ length: n }, newSet);
+/** Fresh sets for an exercise with no history: the style's set count, reps pre-filled for fixed schemes. */
+function initialSets(ex, suggested) {
+  const st = style();
+  const n = suggested || st.sets || 3;
+  const reps = st.scheme === 'fixed' ? st.reps : null;
+  return Array.from({ length: n }, () => ({ ...newSet(), reps }));
 }
 
-/** Sets pre-filled from the progression target when there is history. */
+/** Sets pre-filled from the progression target when there is history, else from the training style. */
 function buildEntry(ex, e = {}) {
   const t = suggest(ex.id);
   const sets = t
     ? Array.from({ length: t.sets }, () => ({ reps: t.reps, weightKg: t.weightKg, done: false, rpe: null }))
-    : initialSets(ex.id, e.suggestedSets);
-  return { exerciseId: ex.id, name: ex.name, sets, reason: e.reason || '', swappedFrom: e.swappedFrom || null, targetReps: e.targetReps || null, group: e.group || null, target: t };
+    : initialSets(ex, e.suggestedSets);
+  const targetReps = e.targetReps !== undefined ? e.targetReps : targetRepsFor(ex);
+  return { exerciseId: ex.id, name: ex.name, sets, reason: e.reason || '', swappedFrom: e.swappedFrom || null, targetReps: targetReps || null, toFailure: !t && style().scheme === 'failure', group: e.group || null, target: t };
+}
+
+/** "2 sets to failure · pick a weight that fails between 8 and 15" for exercises without history. */
+function styleLine(entry) {
+  if (entry.target || !entry.toFailure) return null;
+  const st = style();
+  return `${schemeLabel(st)} · pick a weight that fails between ${st.window[0]} and ${st.window[1]} reps`;
 }
 
 /** Consecutive entries sharing a group letter form one slide. */
@@ -277,6 +289,7 @@ function targetLine(entry) {
   if (entry.target) return `Target: ${fmtTarget(entry.target)}`;
   const last = lastSets(entry.exerciseId);
   if (last.length) return `Last: ${last.map((s) => `${s.reps}×${s.weightKg != null ? fmtWeight(s.weightKg, false) : 'BW'}`).join('  ')}`;
+  if (entry.toFailure) return `Target: ${schemeLabel()}`;
   return `Target: ${entry.sets.length} × ${entry.targetReps || 8}`;
 }
 
@@ -498,7 +511,7 @@ function headerFor(entry, ex, ctx, { label = null, compact = false } = {}) {
   const last = lastSets(entry.exerciseId);
   const lastSummary = last.length
     ? `Last: ${last.map((s) => `${s.reps}×${s.weightKg != null ? fmtWeight(s.weightKg, false) : 'BW'}${s.rpe != null ? ` @${effortDisplayValue(s.rpe)}` : ''}`).join('  ')}`
-    : (entry.targetReps ? `Suggested: ${entry.sets.length} × ${entry.targetReps} reps` : 'No previous session');
+    : (entry.toFailure ? 'No previous session · every set to failure' : entry.targetReps ? `Suggested: ${entry.sets.length} × ${entry.targetReps} reps` : 'No previous session');
   const openSheet_ = () => openExerciseSheet(ex.id, { entry });
   const head = el('div.wk-ex-head.grow', {},
     el('button.name-btn', { onclick: openSheet_ },
@@ -506,6 +519,7 @@ function headerFor(entry, ex, ctx, { label = null, compact = false } = {}) {
       el('span.name', { class: compact ? 'compact' : '' }, entry.name),
       entry.swappedFrom && el('span.chip.swapped', { style: { marginLeft: '8px', verticalAlign: 'middle' } }, 'Swapped')),
     entry.target && el('div.target-line', {}, fmtTarget(entry.target), ' ', el('button.why-link', { onclick: () => openWhySheet(entry) }, 'Why?')),
+    !entry.target && styleLine(entry) && el('div.target-line.style-line', {}, styleLine(entry)),
     coach && !compact && el('div.cue-line', {}, coach.cue),
     el('div.meta', {}, `${muscleNames(ex.primary)} · rest ${entry.group ? db.settings.defaultRestSec || SUPERSET_REST_DEFAULT : restFor(ex)}s`),
     entry.reason && !compact && el('div.why', {}, `Why this exercise? ${entry.reason}`),
@@ -615,7 +629,7 @@ function setRow(entry, ex, set, si, ghost, isCurrent, ctx, { label = null } = {}
   const stepKg = weightStepKg();
   const repsIn = el('input', {
     type: 'text', inputmode: 'numeric', pattern: '[0-9]*', 'aria-label': 'Reps',
-    value: set.reps ?? '', placeholder: ghost ? String(ghost.reps) : (entry.targetReps ? String(entry.targetReps) : '—'),
+    value: set.reps ?? '', placeholder: ghost ? String(ghost.reps) : (entry.targetReps ? String(entry.targetReps) : (entry.toFailure || (entry.target && entry.target.reps == null)) ? 'max' : '—'),
     oninput: (e) => { const n = parseInt(e.target.value, 10); set.reps = n > 0 ? n : null; save(); },
   });
   const wIn = el('input', {
